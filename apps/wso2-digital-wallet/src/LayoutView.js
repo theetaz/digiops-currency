@@ -22,17 +22,6 @@ import { requestDeviceSafeAreaInsets } from "./microapp-bridge";
 
 const MIN_BOTTOM_PADDING_PX = 8;
 
-const isIOSDevice = () => {
-  if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent || "";
-  if (/iPad|iPhone|iPod/.test(ua)) return true;
-  return (
-    navigator.platform === "MacIntel" &&
-    typeof navigator.maxTouchPoints === "number" &&
-    navigator.maxTouchPoints > 1
-  );
-};
-
 function LayoutView() {
   const { Content } = Layout;
   const location = useLocation();
@@ -90,9 +79,7 @@ function LayoutView() {
           );
         }
         if (typeof bottom === "number") {
-          const value = isIOSDevice()
-            ? Math.max(MIN_BOTTOM_PADDING_PX, bottom)
-            : MIN_BOTTOM_PADDING_PX;
+          const value = Math.max(MIN_BOTTOM_PADDING_PX, bottom);
           document.documentElement.style.setProperty(
             "--safe-area-bottom",
             `${value}px`,
