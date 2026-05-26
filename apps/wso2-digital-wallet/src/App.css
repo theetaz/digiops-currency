@@ -10,7 +10,7 @@
 :root {
   --orange-primary: #ff7300;
   --safe-area-top: 0px;
-  --safe-area-bottom: 8px;
+  --safe-area-bottom: 12px;
   --topbar-height: 52px;
 }
 
