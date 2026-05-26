@@ -13,22 +13,20 @@ export const formatWalletAddress = (address) => {
   return `${address.slice(0, 8)}...${address.slice(-6)}`;
 };
 
-export const copyToClipboard = async (address, direction) => {
+export const copyTextToClipboard = async (text, label = 'Value') => {
+  const successMsg = `${label} copied to clipboard!`;
   try {
-    await navigator.clipboard.writeText(address);
-    const action = direction === 'send' ? 'Recipient\'s' : 'Sender\'s';
-    message.success(`${action} wallet address copied to clipboard!`);
+    await navigator.clipboard.writeText(text);
+    message.success(successMsg);
   } catch (err) {
-    // for older browsers
+    // Fallback for older browsers / WebViews without clipboard API.
     const textArea = document.createElement('textarea');
-    textArea.value = address;
+    textArea.value = text;
     document.body.appendChild(textArea);
     textArea.select();
     document.execCommand('copy');
     document.body.removeChild(textArea);
-    
-    const action = direction === 'send' ? 'Recipient\'s' : 'Sender\'s';
-    message.success(`${action} wallet address copied to clipboard!`);
+    message.success(successMsg);
   }
 };
 

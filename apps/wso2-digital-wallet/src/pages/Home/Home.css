@@ -304,28 +304,45 @@
 /* ── TRANSACTION ITEM (shared component, used on Home + History) ── */
 .transaction-item {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 16px;
+  flex-direction: column;
   background: #ffffff;
   border-radius: 18px;
   border: 1px solid #F0EDE8;
   margin: 0;
-  min-height: 76px;
   position: relative;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: all 0.15s ease;
+  transition: background 0.18s ease, border-color 0.18s ease,
+    box-shadow 0.18s ease;
   cursor: pointer;
+  overflow: hidden;
 }
 
 .transaction-item:hover {
   background: #FAFAF9;
 }
 
-.transaction-item:active {
-  background: #F4EFE9;
-  transform: scale(0.99);
+.transaction-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 115, 0, 0.35);
+}
+
+.transaction-item.is-expanded {
+  background: #FFFFFF;
+  border-color: #E5E0D8;
+  box-shadow: 0 6px 20px rgba(28, 25, 23, 0.06);
+}
+
+.transaction-item-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  min-height: 72px;
+}
+
+.transaction-item:active .transaction-item-summary {
+  transform: scale(0.995);
 }
 
 .tx-icon {
@@ -352,36 +369,74 @@
   font-size: 18px;
 }
 
-.recent-activity-topic {
+.transaction-item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.transaction-item-title {
   font-size: 14px;
   font-weight: 600;
   color: #1C1917;
   letter-spacing: -0.3px;
-  margin-bottom: 1px;
+  line-height: 1.2;
 }
 
-.recent-activity-address {
+.transaction-item-counterparty {
   font-size: 11px;
   color: #9CA3AF;
   font-family: 'JetBrains Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.15px;
   line-height: 1.3;
-  margin: 1px 0;
-  text-align: left;
-  word-break: break-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.recent-activity-time {
-  font-size: 11px;
-  color: #78716C;
-  text-align: left;
+.transaction-item-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
-.recent-activity-value {
+.transaction-item-amount {
   font-size: 14px;
   font-weight: 700;
   letter-spacing: -0.4px;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.transaction-item-ticker {
+  font-size: 11px;
+  font-weight: 500;
+  margin-left: 3px;
+  opacity: 0.7;
+}
+
+.transaction-item-time {
+  font-size: 11px;
+  color: #78716C;
+  font-variant-numeric: tabular-nums;
+}
+
+.transaction-item-chevron {
+  font-size: 10px;
+  color: #9CA3AF;
+  margin-left: 2px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.transaction-item-chevron.is-open {
+  transform: rotate(180deg);
+  color: #1C1917;
 }
 
 .red-text {
@@ -392,11 +447,97 @@
   color: #22C55E;
 }
 
-.recent-activity-ticker {
+/* Expanded details panel */
+.transaction-item-details {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.18s ease;
+}
+
+.transaction-item.is-expanded .transaction-item-details {
+  max-height: 360px;
+  opacity: 1;
+}
+
+.transaction-item-divider {
+  height: 1px;
+  background: #F0EDE8;
+  margin: 0 16px 6px;
+}
+
+.transaction-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px;
+  min-height: 30px;
+}
+
+.transaction-detail-row:last-child {
+  padding-bottom: 12px;
+}
+
+.transaction-detail-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #9CA3AF;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  flex: 0 0 96px;
+}
+
+.transaction-detail-value {
+  font-size: 13px;
+  color: #1C1917;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
+
+.transaction-detail-value.is-muted {
+  color: #9CA3AF;
+  font-weight: 500;
+}
+
+.transaction-detail-ticker {
   font-size: 11px;
   font-weight: 500;
-  margin-left: 3px;
   opacity: 0.7;
+  margin-left: 2px;
+}
+
+.transaction-detail-copy {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: #F0EDE8;
+  color: #78716C;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.transaction-detail-copy:hover {
+  background: #E5E0D8;
+  color: #1C1917;
+}
+
+.transaction-detail-copy:active {
+  transform: scale(0.94);
 }
 
 /* ── HISTORY PAGE ───────────────────────────────────────────────── */
