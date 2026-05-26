@@ -248,14 +248,16 @@ export const getTokenTransfersByAddress = async (
 
   const formatLog = async (log) => {
     const block = await getBlock(log.blockNumber);
+    const blockTimestampMs = block ? block.timestamp * 1000 : null;
     return {
       txHash: log.transactionHash,
       blockNumber: log.blockNumber,
       from: log.args.from,
       to: log.args.to,
       value: ethers.utils.formatUnits(log.args.value, decimals),
-      timestamp: block
-        ? formatTimestamp(new Date(block.timestamp * 1000).toISOString())
+      blockTimestamp: blockTimestampMs,
+      timestamp: blockTimestampMs
+        ? formatTimestamp(new Date(blockTimestampMs).toISOString())
         : 'Unknown time',
       direction: sentTxHashes.has(log.transactionHash) ? 'send' : 'receive'
     };

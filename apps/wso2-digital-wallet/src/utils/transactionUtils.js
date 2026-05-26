@@ -6,6 +6,7 @@
 // You may not alter or remove any copyright or other notice from copies of this content.
 
 import { message } from 'antd';
+import { DateTime } from 'luxon';
 
 export const formatWalletAddress = (address) => {
   if (!address) return '';
@@ -33,4 +34,40 @@ export const copyToClipboard = async (address, direction) => {
 
 export const formatTimestamp = (timestamp) => {
   return new Date(timestamp).toLocaleString();
+};
+
+const getDateLabel = (dateTime, today) => {
+  const startOfDay = dateTime.startOf('day');
+  const diffDays = Math.round(today.diff(startOfDay, 'days').days);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (startOfDay.year === today.year) {
+    return startOfDay.toFormat('d LLLL');
+  }
+  return startOfDay.toFormat('d LLLL yyyy');
+};
+
+export const groupTransactionsByDate = (transactions) => {
+  if (!transactions || transactions.length === 0) return [];
+  const today = DateTime.local().startOf('day');
+  const groups = [];
+  const indexByKey = new Map();
+
+  transactions.forEach((tx) => {
+    const ts = tx.blockTimestamp;
+    let key = 'unknown';
+    let label = 'Unknown date';
+    if (typeof ts === 'number' && Number.isFinite(ts)) {
+      const dt = DateTime.fromMillis(ts).startOf('day');
+      key = dt.toISODate();
+      label = getDateLabel(dt, today);
+    }
+    if (!indexByKey.has(key)) {
+      indexByKey.set(key, groups.length);
+      groups.push({ key, label, transactions: [] });
+    }
+    groups[indexByKey.get(key)].transactions.push(tx);
+  });
+
+  return groups;
 };

@@ -27,6 +27,7 @@ import { getLocalDataAsync } from '../../helpers/storage';
 import { useTransactionHistory } from '../../hooks/useTransactionHistory';
 import TransactionItem from '../shared/TransactionItem';
 import { COLORS } from '../../constants/colors';
+import { groupTransactionsByDate } from '../../utils/transactionUtils';
 
 const RECENT_PREVIEW_SIZE = 5;
 const PULL_THRESHOLD_PX = 70;
@@ -132,14 +133,20 @@ const RecentActivities = forwardRef(
 
     function TransactionList({ transactions }) {
       if (transactions.length > 0) {
+        const groups = groupTransactionsByDate(transactions);
         return (
           <>
-            {transactions.map((transaction, index) => (
-              <TransactionItem
-                key={`${transaction.txHash}-${index}`}
-                transaction={transaction}
-                index={index}
-              />
+            {groups.map((group) => (
+              <div key={group.key} className="transaction-date-group">
+                <div className="transaction-date-heading">{group.label}</div>
+                {group.transactions.map((transaction, index) => (
+                  <TransactionItem
+                    key={`${transaction.txHash}-${index}`}
+                    transaction={transaction}
+                    index={index}
+                  />
+                ))}
+              </div>
             ))}
           </>
         );
