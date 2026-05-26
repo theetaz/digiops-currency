@@ -63,13 +63,6 @@ const TransactionItem = ({ transaction, index }) => {
   const isSend = transaction.direction === 'send';
   const counterparty = isSend ? transaction.to : transaction.from;
 
-  const time = useMemo(() => {
-    if (Number.isFinite(transaction.blockTimestamp)) {
-      return DateTime.fromMillis(transaction.blockTimestamp).toFormat('HH:mm');
-    }
-    return '';
-  }, [transaction.blockTimestamp]);
-
   const fullDateTime = useMemo(() => {
     if (Number.isFinite(transaction.blockTimestamp)) {
       return DateTime.fromMillis(transaction.blockTimestamp).toFormat(
@@ -127,7 +120,6 @@ const TransactionItem = ({ transaction, index }) => {
             {transaction.value}
             <span className="transaction-item-ticker">{WSO2_TOKEN}</span>
           </span>
-          {time && <span className="transaction-item-time">{time}</span>}
         </div>
 
         <DownOutlined
