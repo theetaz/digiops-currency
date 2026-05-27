@@ -142,7 +142,9 @@ function Home() {
               />
             )}
           </div>
-          <div className="hero-balance-ticker">{WSO2_TOKEN}</div>
+          {!isTokenBalanceLoading && (
+            <div className="hero-balance-ticker">{WSO2_TOKEN}</div>
+          )}
         </div>
       </div>
 

@@ -155,7 +155,6 @@
   display: inline-flex;
   align-items: center;
   min-height: 42px;
-  min-width: 140px;
 }
 
 .hero-balance-ticker {
@@ -166,7 +165,8 @@
 }
 
 .hero-balance-skeleton {
-  width: 100%;
+  width: 200px;
+  max-width: 60%;
   height: 38px;
   border-radius: 10px;
   background: linear-gradient(
