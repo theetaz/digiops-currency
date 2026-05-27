@@ -6,18 +6,17 @@
 // You may not alter or remove any copyright or other notice from copies of this content.
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { Spin, Pagination } from 'antd';
+import { Pagination } from 'antd';
 import {
-  LoadingOutlined,
   SearchOutlined,
   CloseOutlined,
   CalendarOutlined,
 } from '@ant-design/icons';
 import { DateTime } from 'luxon';
-import { COLORS } from '../../constants/colors';
 
 import { useTransactionHistory } from '../../hooks/useTransactionHistory';
 import TransactionItem from '../shared/TransactionItem';
+import { TransactionListSkeleton } from '../shared/TransactionItemSkeleton';
 import { groupTransactionsByDate } from '../../utils/transactionUtils';
 
 import { useQueryClient } from '@tanstack/react-query';
@@ -399,18 +398,8 @@ function TransactionHistory({ walletAddress }) {
         </div>
 
         {loading && transactions.length === 0 ? (
-          <div className="history-loading">
-            <Spin
-              indicator={
-                <LoadingOutlined
-                  style={{ color: COLORS.ORANGE_PRIMARY, fontSize: 24 }}
-                  spin
-                />
-              }
-            />
-            <div className="history-loading-text">
-              Loading transaction history...
-            </div>
+          <div className="transaction-history-container">
+            <TransactionListSkeleton count={6} />
           </div>
         ) : (
           <>

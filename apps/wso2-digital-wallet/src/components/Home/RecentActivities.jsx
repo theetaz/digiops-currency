@@ -14,7 +14,6 @@ import {
   forwardRef,
   useImperativeHandle,
 } from 'react';
-import { Spin } from 'antd';
 import { LoadingOutlined, RightOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
@@ -26,6 +25,7 @@ import {
 import { getLocalDataAsync } from '../../helpers/storage';
 import { useTransactionHistory } from '../../hooks/useTransactionHistory';
 import TransactionItem from '../shared/TransactionItem';
+import { TransactionListSkeleton } from '../shared/TransactionItemSkeleton';
 import { COLORS } from '../../constants/colors';
 import { groupTransactionsByDate } from '../../utils/transactionUtils';
 
@@ -193,11 +193,8 @@ const RecentActivities = forwardRef(
           </div>
 
           {loading && transactions.length === 0 && !isRefreshing ? (
-            <div className="mt-5">
-              <Spin
-                indicator={<LoadingOutlined style={{ color: COLORS.ORANGE_PRIMARY }} />}
-                style={{ margin: '10px ' }}
-              />
+            <div className="recent-activity-container">
+              <TransactionListSkeleton count={5} />
             </div>
           ) : (
             <div

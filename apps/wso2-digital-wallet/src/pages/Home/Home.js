@@ -13,14 +13,11 @@ import {
   useRef,
 } from 'react';
 
-import {
-  message,
-  Spin,
-} from 'antd';
+import { message } from 'antd';
 import { NumericFormat } from 'react-number-format';
 import { useNavigate } from 'react-router-dom';
 
-import { LoadingOutlined, SendOutlined, DownloadOutlined } from '@ant-design/icons';
+import { SendOutlined, DownloadOutlined } from '@ant-design/icons';
 
 import RecentActivities from '../../components/Home/RecentActivities';
 import {
@@ -126,8 +123,10 @@ function Home() {
         <div className="hero-balance-row">
           <div className="hero-balance-amount">
             {isTokenBalanceLoading ? (
-              <Spin
-                indicator={<LoadingOutlined style={{ color: '#ffffff', fontSize: 28 }} spin />}
+              <div
+                className="hero-balance-skeleton"
+                role="status"
+                aria-label="Loading balance"
               />
             ) : typeof tokenBalance === 'undefined' ? (
               <button className="hero-balance-retry" onClick={refetch}>
