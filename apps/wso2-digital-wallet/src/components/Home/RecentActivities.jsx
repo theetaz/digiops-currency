@@ -14,7 +14,11 @@ import {
   forwardRef,
   useImperativeHandle,
 } from 'react';
-import { LoadingOutlined, RightOutlined } from '@ant-design/icons';
+import {
+  InboxOutlined,
+  LoadingOutlined,
+  RightOutlined,
+} from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
 import { STORAGE_KEYS } from '../../constants/configs';
@@ -152,8 +156,14 @@ const RecentActivities = forwardRef(
         );
       }
       return (
-        <div className="mt-5">
-          <p className="text-muted">No recent activities.</p>
+        <div className="empty-state empty-state-compact">
+          <div className="empty-state-icon">
+            <InboxOutlined />
+          </div>
+          <div className="empty-state-title">No transactions yet</div>
+          <div className="empty-state-subtitle">
+            Your sent and received O2C will appear here.
+          </div>
         </div>
       );
     }

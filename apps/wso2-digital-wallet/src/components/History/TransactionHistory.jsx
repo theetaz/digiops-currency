@@ -11,6 +11,7 @@ import {
   SearchOutlined,
   CloseOutlined,
   CalendarOutlined,
+  InboxOutlined,
 } from '@ant-design/icons';
 import { DateTime } from 'luxon';
 
@@ -232,14 +233,12 @@ function TransactionHistory({ walletAddress }) {
         </>
       );
     }
-    return (
-      <div className="history-empty">
-        <p className="history-empty-text">
-          {searchTerm || isDateFilterActive
-            ? 'No transactions match your filters'
-            : 'No transaction history found'}
-        </p>
-        {(searchTerm || isDateFilterActive) && (
+    if (searchTerm || isDateFilterActive) {
+      return (
+        <div className="history-empty">
+          <p className="history-empty-text">
+            No transactions match your filters
+          </p>
           <button
             className="history-empty-action"
             onClick={() => {
@@ -249,7 +248,18 @@ function TransactionHistory({ walletAddress }) {
           >
             Clear Filters
           </button>
-        )}
+        </div>
+      );
+    }
+    return (
+      <div className="empty-state">
+        <div className="empty-state-icon">
+          <InboxOutlined />
+        </div>
+        <div className="empty-state-title">No transactions yet</div>
+        <div className="empty-state-subtitle">
+          Your sent and received O2C will appear here.
+        </div>
       </div>
     );
   }
