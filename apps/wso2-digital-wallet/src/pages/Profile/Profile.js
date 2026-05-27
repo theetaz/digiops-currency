@@ -185,29 +185,53 @@ function Profile() {
 
               {showTagRow && (
                 <div className="profile-modal-tag-row">
-                  {isActive && (
-                    <span className="profile-active-tag">Signed in</span>
-                  )}
                   {isPrimary && (
                     <span className="profile-primary-tag">Default</span>
+                  )}
+                  {isActive && (
+                    <span className="profile-active-tag">Signed in</span>
                   )}
                 </div>
               )}
 
-              <div
-                className={`profile-modal-explainer ${isPrimary ? 'is-primary' : ''}`}
-              >
-                <div className="profile-modal-explainer-title">
-                  {isPrimary
-                    ? 'Your default wallet'
-                    : 'Not your default wallet'}
+              {isPrimary && (
+                <div className="profile-modal-explainer is-primary">
+                  <div className="profile-modal-explainer-title">
+                    Default Wallet
+                  </div>
+                  <div className="profile-modal-explainer-text">
+                    This is your default wallet. Coin rewards will be received
+                    to this wallet. To change it, tap another wallet and set it
+                    as default.
+                  </div>
                 </div>
-                <div className="profile-modal-explainer-text">
-                  {isPrimary
-                    ? 'Your coin rewards will be received to your default wallet. If you need to change the default wallet, tap the required wallet and set it as default.'
-                    : 'Set this wallet as default to receive your coin rewards here.'}
+              )}
+
+              {isActive && (
+                <div className="profile-modal-explainer is-active">
+                  <div className="profile-modal-explainer-title">
+                    Signed in Wallet
+                  </div>
+                  <div className="profile-modal-explainer-text">
+                    This is the wallet you are currently signed in with.
+                    Balance and transactions are shown for this wallet. To
+                    switch wallets, logout and recover another wallet using
+                    recovery phrases.
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {!isPrimary && !isActive && (
+                <div className="profile-modal-explainer">
+                  <div className="profile-modal-explainer-title">
+                    Not your default wallet
+                  </div>
+                  <div className="profile-modal-explainer-text">
+                    Set this wallet as default to receive your coin rewards
+                    here.
+                  </div>
+                </div>
+              )}
 
               {!isPrimary && (
                 <button
@@ -381,21 +405,6 @@ function Profile() {
                 aria-hidden={!isOpen}
               >
                 <div className="profile-wallets-body-inner">
-                  <div className="profile-wallets-legend">
-                    <div className="profile-wallets-legend-item">
-                      <span className="profile-primary-tag">Default</span>
-                      <span className="profile-wallets-legend-text">
-                        Where you receive rewards
-                      </span>
-                    </div>
-                    <div className="profile-wallets-legend-item">
-                      <span className="profile-active-tag">Signed in</span>
-                      <span className="profile-wallets-legend-text">
-                        Active on this device
-                      </span>
-                    </div>
-                  </div>
-
                   <div className="profile-wallets-list">
                     {userWallets.map((wallet, idx) => {
                       const isActive = isActiveWallet(wallet);

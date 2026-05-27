@@ -156,27 +156,6 @@
   border-top: 1px solid #F0EDE8;
 }
 
-.profile-wallets-legend {
-  padding: 12px 16px;
-  background: #FAFAF9;
-  border-bottom: 1px solid #F0EDE8;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.profile-wallets-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.profile-wallets-legend-text {
-  font-size: 12px;
-  color: #78716C;
-  line-height: 1.4;
-}
-
 .profile-wallets-list {
   display: flex;
   flex-direction: column;
@@ -321,6 +300,11 @@
   border-color: rgba(34, 197, 94, 0.22);
 }
 
+.profile-modal-explainer.is-active {
+  background: #FFF7ED;
+  border-color: rgba(249, 115, 22, 0.22);
+}
+
 .profile-modal-explainer-title {
   font-size: 13px;
   font-weight: 600;
@@ -333,6 +317,10 @@
   color: #166534;
 }
 
+.profile-modal-explainer.is-active .profile-modal-explainer-title {
+  color: #9A3412;
+}
+
 .profile-modal-explainer-text {
   font-size: 12px;
   color: #78716C;
@@ -341,6 +329,10 @@
 
 .profile-modal-explainer.is-primary .profile-modal-explainer-text {
   color: #15803D;
+}
+
+.profile-modal-explainer.is-active .profile-modal-explainer-text {
+  color: #C2410C;
 }
 
 .profile-modal-primary-btn {
