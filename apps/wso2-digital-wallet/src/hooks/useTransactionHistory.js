@@ -8,7 +8,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getTransactionHistory, MAX_TRANSFER_PAGE } from '../services/blockchain.service';
 
-export function useTransactionHistory({ walletAddress, pageSize = 20, filter = 'all', page = 1 }) {
+export function useTransactionHistory({
+  walletAddress,
+  pageSize = 20,
+  filter = 'all',
+  page = 1,
+  dateRange = null,
+}) {
   const queryClient = useQueryClient();
   const {
     data,
@@ -34,7 +40,16 @@ export function useTransactionHistory({ walletAddress, pageSize = 20, filter = '
   let filtered = allTransactions;
   if (filter !== 'all') {
     const direction = filter === 'sent' ? 'send' : 'receive';
-    filtered = allTransactions.filter(tx => tx.direction === direction);
+    filtered = filtered.filter(tx => tx.direction === direction);
+  }
+  if (dateRange && (dateRange.from != null || dateRange.to != null)) {
+    const fromMs = dateRange.from ?? -Infinity;
+    const toMs = dateRange.to ?? Infinity;
+    filtered = filtered.filter((tx) => {
+      const ts = tx.blockTimestamp;
+      if (typeof ts !== 'number' || !Number.isFinite(ts)) return false;
+      return ts >= fromMs && ts <= toMs;
+    });
   }
   const totalCount = filtered.length;
   const totalPages = Math.ceil(totalCount / pageSize);

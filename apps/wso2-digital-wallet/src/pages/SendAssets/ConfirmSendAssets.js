@@ -128,6 +128,24 @@ function ConfirmSendAssets() {
         await resetInputFields();
 
         if (fromAddress) {
+          const cachedBalance = queryClient.getQueryData([
+            "walletBalance",
+            fromAddress,
+          ]);
+          const balanceNum = Number(cachedBalance);
+          const amountNum = Number(sendAmount);
+          if (
+            cachedBalance != null &&
+            Number.isFinite(balanceNum) &&
+            Number.isFinite(amountNum)
+          ) {
+            const optimistic = Math.max(0, balanceNum - amountNum).toString();
+            queryClient.setQueryData(
+              ["walletBalance", fromAddress],
+              optimistic,
+            );
+          }
+
           queryClient.invalidateQueries({
             queryKey: ["transactions", fromAddress],
           });

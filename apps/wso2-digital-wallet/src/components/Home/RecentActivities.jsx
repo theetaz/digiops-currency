@@ -14,8 +14,11 @@ import {
   forwardRef,
   useImperativeHandle,
 } from 'react';
-import { Spin } from 'antd';
-import { LoadingOutlined, RightOutlined } from '@ant-design/icons';
+import {
+  InboxOutlined,
+  LoadingOutlined,
+  RightOutlined,
+} from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
 import { STORAGE_KEYS } from '../../constants/configs';
@@ -26,7 +29,9 @@ import {
 import { getLocalDataAsync } from '../../helpers/storage';
 import { useTransactionHistory } from '../../hooks/useTransactionHistory';
 import TransactionItem from '../shared/TransactionItem';
+import { TransactionListSkeleton } from '../shared/TransactionItemSkeleton';
 import { COLORS } from '../../constants/colors';
+import { groupTransactionsByDate } from '../../utils/transactionUtils';
 
 const RECENT_PREVIEW_SIZE = 5;
 const PULL_THRESHOLD_PX = 70;
@@ -132,21 +137,33 @@ const RecentActivities = forwardRef(
 
     function TransactionList({ transactions }) {
       if (transactions.length > 0) {
+        const groups = groupTransactionsByDate(transactions);
         return (
           <>
-            {transactions.map((transaction, index) => (
-              <TransactionItem
-                key={`${transaction.txHash}-${index}`}
-                transaction={transaction}
-                index={index}
-              />
+            {groups.map((group) => (
+              <div key={group.key} className="transaction-date-group">
+                <div className="transaction-date-heading">{group.label}</div>
+                {group.transactions.map((transaction, index) => (
+                  <TransactionItem
+                    key={`${transaction.txHash}-${index}`}
+                    transaction={transaction}
+                    index={index}
+                  />
+                ))}
+              </div>
             ))}
           </>
         );
       }
       return (
-        <div className="mt-5">
-          <p className="text-muted">No recent activities.</p>
+        <div className="empty-state empty-state-compact">
+          <div className="empty-state-icon">
+            <InboxOutlined />
+          </div>
+          <div className="empty-state-title">No transactions yet</div>
+          <div className="empty-state-subtitle">
+            Your sent and received O2C will appear here.
+          </div>
         </div>
       );
     }
@@ -186,11 +203,8 @@ const RecentActivities = forwardRef(
           </div>
 
           {loading && transactions.length === 0 && !isRefreshing ? (
-            <div className="mt-5">
-              <Spin
-                indicator={<LoadingOutlined style={{ color: COLORS.ORANGE_PRIMARY }} />}
-                style={{ margin: '10px ' }}
-              />
+            <div className="recent-activity-container">
+              <TransactionListSkeleton count={5} />
             </div>
           ) : (
             <div

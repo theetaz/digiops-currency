@@ -106,16 +106,8 @@ function ReceiveCoins() {
     }
   };
 
-  const downloadQrBlob = (blob) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `receive-${receiveAmount}-${WSO2_TOKEN}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  };
+  const SCREENSHOT_FALLBACK_MESSAGE =
+    "Sharing isn't available here. Take a screenshot to save this QR code.";
 
   const handleShareQrCode = async () => {
     try {
@@ -150,23 +142,21 @@ function ReceiveCoins() {
             typeof navigator.share === "function" &&
             navigator.canShare({ files: [file] });
 
-          if (canShareFile) {
-            try {
-              await navigator.share({ files: [file] });
-              messageApi.success("QR code shared");
-            } catch (shareError) {
-              if (shareError.name === "AbortError") {
-                return;
-              }
-              console.error("Error sharing QR code:", shareError);
-              downloadQrBlob(blob);
-              messageApi.success("QR code saved to your device");
-            }
+          if (!canShareFile) {
+            messageApi.info(SCREENSHOT_FALLBACK_MESSAGE);
             return;
           }
 
-          downloadQrBlob(blob);
-          messageApi.success("QR code saved to your device");
+          try {
+            await navigator.share({ files: [file] });
+            messageApi.success("QR code shared");
+          } catch (shareError) {
+            if (shareError.name === "AbortError") {
+              return;
+            }
+            console.error("Error sharing QR code:", shareError);
+            messageApi.info(SCREENSHOT_FALLBACK_MESSAGE);
+          }
         }, "image/png");
       };
 

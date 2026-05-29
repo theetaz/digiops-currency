@@ -5,49 +5,157 @@
 // herein in any form is strictly forbidden, unless permitted by WSO2 expressly.
 // You may not alter or remove any copyright or other notice from copies of this content.
 
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ArrowDownOutlined,
   ArrowUpOutlined,
+  CopyOutlined,
+  DownOutlined,
 } from '@ant-design/icons';
+import { DateTime } from 'luxon';
+
 import { WSO2_TOKEN } from '../../constants/strings';
-import { formatWalletAddress, copyToClipboard } from '../../utils/transactionUtils';
+import {
+  formatWalletAddress,
+  copyTextToClipboard,
+} from '../../utils/transactionUtils';
+
+const formatBalance = (raw) => {
+  if (raw == null) return null;
+  const num = Number(raw);
+  if (!Number.isFinite(num)) return raw;
+  return num.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
+};
+
+const DetailRow = ({ label, value, copyValue, copyLabel, muted }) => {
+  const handleCopy = (e) => {
+    e.stopPropagation();
+    if (copyValue) copyTextToClipboard(copyValue, copyLabel || label);
+  };
+  return (
+    <div className="transaction-detail-row">
+      <span className="transaction-detail-label">{label}</span>
+      <span
+        className={`transaction-detail-value ${muted ? 'is-muted' : ''}`}
+      >
+        {value}
+        {copyValue && (
+          <button
+            type="button"
+            className="transaction-detail-copy"
+            onClick={handleCopy}
+            aria-label={`Copy ${copyLabel || label}`}
+          >
+            <CopyOutlined />
+          </button>
+        )}
+      </span>
+    </div>
+  );
+};
 
 const TransactionItem = ({ transaction, index }) => {
-  const isSend = transaction.direction === "send";
-  const addressToCopy = isSend ? transaction.to : transaction.from;
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const isSend = transaction.direction === 'send';
+  const counterparty = isSend ? transaction.to : transaction.from;
+
+  const fullDateTime = useMemo(() => {
+    if (Number.isFinite(transaction.blockTimestamp)) {
+      return DateTime.fromMillis(transaction.blockTimestamp).toFormat(
+        'd LLL yyyy · HH:mm',
+      );
+    }
+    return transaction.timestamp || '—';
+  }, [transaction.blockTimestamp, transaction.timestamp]);
+
+  const toggle = () => setIsExpanded((v) => !v);
+
+  const balanceDisplay = formatBalance(transaction.runningBalance);
 
   return (
     <div
       key={index}
-      className="transaction-item"
-      onClick={() => copyToClipboard(addressToCopy, transaction.direction)}
+      className={`transaction-item ${isExpanded ? 'is-expanded' : ''}`}
+      role="button"
+      tabIndex={0}
+      aria-expanded={isExpanded}
+      onClick={toggle}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggle();
+        }
+      }}
     >
-      <div className={`tx-icon ${isSend ? 'sent' : 'received'}`}>
-        {isSend ? (
-          <ArrowUpOutlined style={{ fontSize: 18 }} />
-        ) : (
-          <ArrowDownOutlined style={{ fontSize: 18 }} />
-        )}
+      <div className="transaction-item-summary">
+        <div className={`tx-icon ${isSend ? 'sent' : 'received'}`}>
+          {isSend ? (
+            <ArrowUpOutlined style={{ fontSize: 18 }} />
+          ) : (
+            <ArrowDownOutlined style={{ fontSize: 18 }} />
+          )}
+        </div>
+
+        <div className="transaction-item-main">
+          <span className="transaction-item-title">
+            {isSend ? 'Sent' : 'Received'}
+          </span>
+          <span className="transaction-item-counterparty">
+            {isSend ? 'to ' : 'from '}
+            {formatWalletAddress(counterparty)}
+          </span>
+        </div>
+
+        <div className="transaction-item-side">
+          <span
+            className={`transaction-item-amount ${
+              isSend ? 'red-text' : 'green-text'
+            }`}
+          >
+            {isSend ? '-' : '+'}
+            {transaction.value}
+            <span className="transaction-item-ticker">{WSO2_TOKEN}</span>
+          </span>
+        </div>
+
+        <DownOutlined
+          className={`transaction-item-chevron ${
+            isExpanded ? 'is-open' : ''
+          }`}
+        />
       </div>
 
-      <div className="d-flex flex-column text-start" style={{ flex: 1, minWidth: 0 }}>
-        <span className="recent-activity-topic">
-          {isSend ? "Sent" : "Received"}
-        </span>
-        <span className="recent-activity-address">
-          {formatWalletAddress(isSend ? transaction.to : transaction.from)}
-        </span>
-        <span className="recent-activity-time">
-          {transaction.timestamp}
-        </span>
+      <div
+        className="transaction-item-details"
+        aria-hidden={!isExpanded}
+      >
+        <div className="transaction-item-divider" />
+        <DetailRow
+          label="Running balance"
+          value={
+            balanceDisplay ? (
+              <>
+                {balanceDisplay}
+                <span className="transaction-detail-ticker">{WSO2_TOKEN}</span>
+              </>
+            ) : (
+              '—'
+            )
+          }
+          muted={!balanceDisplay}
+        />
+        <DetailRow
+          label={isSend ? 'Sent to' : 'Received from'}
+          value={formatWalletAddress(counterparty)}
+          copyValue={counterparty}
+          copyLabel={isSend ? "Recipient's address" : "Sender's address"}
+        />
+        <DetailRow label="When" value={fullDateTime} />
       </div>
-
-      <span className={`recent-activity-value ${isSend ? 'red-text' : 'green-text'}`}>
-        {isSend ? "-" : "+"}
-        {transaction.value}
-        <span className="recent-activity-ticker">{WSO2_TOKEN}</span>
-      </span>
     </div>
   );
 };

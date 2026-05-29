@@ -223,8 +223,17 @@ export const getTokenTransfersByAddress = async (
     contract.queryFilter(filterTo, fromBlock, toBlock),
   ]);
 
-  const allLogs = [...sentLogs, ...receivedLogs]
-    .sort((a, b) => b.blockNumber - a.blockNumber);
+  const seenLogKeys = new Set();
+  const allLogs = [...sentLogs, ...receivedLogs].filter((log) => {
+    const key = `${log.transactionHash}|${log.logIndex}`;
+    if (seenLogKeys.has(key)) return false;
+    seenLogKeys.add(key);
+    return true;
+  });
+  allLogs.sort((a, b) => {
+    if (b.blockNumber !== a.blockNumber) return b.blockNumber - a.blockNumber;
+    return b.logIndex - a.logIndex;
+  });
 
   const safeLimit = Math.min(Math.max(limit, 1), MAX_TRANSFER_PAGE);
   const safeOffset = Math.max(offset, 0);
@@ -233,6 +242,31 @@ export const getTokenTransfersByAddress = async (
   const decimals = await getTokenDecimals(contract);
 
   const sentTxHashes = new Set(sentLogs.map((log) => log.transactionHash));
+
+  const runningBalanceByLog = new Map();
+  try {
+    const currentBalanceBN = await contract.balanceOf(walletAddress);
+    const walletLower = walletAddress.toLowerCase();
+    let runningBN = currentBalanceBN;
+    for (const log of allLogs) {
+      const key = `${log.transactionHash}|${log.logIndex}`;
+      runningBalanceByLog.set(
+        key,
+        ethers.utils.formatUnits(runningBN, decimals),
+      );
+      const fromIsWallet = log.args.from.toLowerCase() === walletLower;
+      const toIsWallet = log.args.to.toLowerCase() === walletLower;
+      if (fromIsWallet && toIsWallet) {
+        // self-transfer: no net change
+      } else if (fromIsWallet) {
+        runningBN = runningBN.add(log.args.value);
+      } else if (toIsWallet) {
+        runningBN = runningBN.sub(log.args.value);
+      }
+    }
+  } catch (err) {
+    console.warn('Could not compute running balances:', err);
+  }
 
   // Cache the Promise so txs in the same block share one getBlock call.
   const blockCache = new Map();
@@ -248,16 +282,22 @@ export const getTokenTransfersByAddress = async (
 
   const formatLog = async (log) => {
     const block = await getBlock(log.blockNumber);
+    const blockTimestampMs = block ? block.timestamp * 1000 : null;
+    const runningBalance =
+      runningBalanceByLog.get(`${log.transactionHash}|${log.logIndex}`) || null;
     return {
       txHash: log.transactionHash,
       blockNumber: log.blockNumber,
+      logIndex: log.logIndex,
       from: log.args.from,
       to: log.args.to,
       value: ethers.utils.formatUnits(log.args.value, decimals),
-      timestamp: block
-        ? formatTimestamp(new Date(block.timestamp * 1000).toISOString())
+      blockTimestamp: blockTimestampMs,
+      timestamp: blockTimestampMs
+        ? formatTimestamp(new Date(blockTimestampMs).toISOString())
         : 'Unknown time',
-      direction: sentTxHashes.has(log.transactionHash) ? 'send' : 'receive'
+      direction: sentTxHashes.has(log.transactionHash) ? 'send' : 'receive',
+      runningBalance,
     };
   };
 
