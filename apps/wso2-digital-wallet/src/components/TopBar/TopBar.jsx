@@ -13,6 +13,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { WALLET } from '../../constants/strings';
 import { requestNavigateToMyApps } from '../../microapp-bridge';
+import { saveLocalDataAsync } from '../../helpers/storage';
 
 const PAGE_TITLES = {
   '/': WALLET,
@@ -101,8 +102,31 @@ const TopBar = () => {
     setIsLeaveOpen(true);
   };
 
-  const confirmLeave = () => {
+  const confirmLeave = async () => {
     setIsLeaveOpen(false);
+
+    // If leaving during a checkout or parking payment confirmation screen,
+    // ensure we record the FAILED state so the calling app doesn't get stuck loading.
+    if (location.pathname === '/confirm-assets-send') {
+      const state = location.state;
+      if (state?.isShopPaymentFlow) {
+        try {
+          await saveLocalDataAsync("shop_payment_status", "FAILED");
+          await saveLocalDataAsync("shop_payment_error", "User aborted checkout");
+          await saveLocalDataAsync("shop_checkout_pending", null);
+        } catch (e) {
+          console.error("Failed to write aborted status for shop payment", e);
+        }
+      } else if (state?.isParkingPaymentFlow) {
+        try {
+          await saveLocalDataAsync("people_parking_payment_status", "FAILED");
+          await saveLocalDataAsync("people_parking_payment_error", "User aborted payment");
+        } catch (e) {
+          console.error("Failed to write aborted status for parking payment", e);
+        }
+      }
+    }
+
     requestNavigateToMyApps();
   };
 

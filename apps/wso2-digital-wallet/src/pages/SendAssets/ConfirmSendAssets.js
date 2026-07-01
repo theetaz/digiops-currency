@@ -252,7 +252,7 @@ function ConfirmSendAssets() {
     }
   };
 
-  const isParkingFlow = !!parkingFlowData || !!shopFlowData;
+  const isParkingFlow = !!parkingFlowData;
 
   return (
     <div className="confirm-page">

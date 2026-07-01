@@ -31,11 +31,12 @@ import { waitForBridge } from "../../helpers/bridge";
 import { scanQrCode } from "../../microapp-bridge";
 import {
   getParkingPaymentLaunchData,
+  peekParkingPaymentLaunchData,
   hydrateParkingLaunchDataFromBridge,
 } from "../../helpers/parkingPaymentFlow";
 import {
   getShopPaymentLaunchData,
-  hydrateShopLaunchDataFromBridge,
+  peekShopPaymentLaunchData,
 } from "../../helpers/shopPaymentFlow";
 
 function SendAssets() {
@@ -113,58 +114,68 @@ function SendAssets() {
 
   useEffect(() => {
     const initializePaymentLaunch = async () => {
-      // 1. Try Parking flow first
-      await hydrateParkingLaunchDataFromBridge();
-      const parkingData = getParkingPaymentLaunchData();
-      if (parkingData) {
-        try {
-          await saveLocalDataAsync(
-            STORAGE_KEYS.SENDER_WALLET_ADDRESS,
-            parkingData.walletAddress,
-          );
-          await saveLocalDataAsync(
-            STORAGE_KEYS.SENDING_AMOUNT,
-            parkingData.amount,
-          );
-          navigate("/confirm-assets-send", {
-            replace: true,
-            state: {
-              isParkingPaymentFlow: true,
-              returnAppId: parkingData.returnAppId,
-              returnRoute: parkingData.returnRoute,
-            },
-          });
-        } catch (error) {
-          console.log(`${ERROR_SAVING_TX_DETAILS}: ${error}`);
+      // 1. Peek both flows first (instant check if already in URL / window)
+      let peekParking = peekParkingPaymentLaunchData();
+      let peekShop = peekShopPaymentLaunchData();
+
+      // 2. If neither is present, run the bridge hydration once
+      if (!peekParking && !peekShop) {
+        await hydrateParkingLaunchDataFromBridge();
+        peekParking = peekParkingPaymentLaunchData();
+        peekShop = peekShopPaymentLaunchData();
+      }
+
+      // 3. Process whichever flow was matched
+      if (peekParking) {
+        const parkingData = getParkingPaymentLaunchData();
+        if (parkingData) {
+          try {
+            await saveLocalDataAsync(
+              STORAGE_KEYS.SENDER_WALLET_ADDRESS,
+              parkingData.walletAddress,
+            );
+            await saveLocalDataAsync(
+              STORAGE_KEYS.SENDING_AMOUNT,
+              parkingData.amount,
+            );
+            navigate("/confirm-assets-send", {
+              replace: true,
+              state: {
+                isParkingPaymentFlow: true,
+                returnAppId: parkingData.returnAppId,
+                returnRoute: parkingData.returnRoute,
+              },
+            });
+          } catch (error) {
+            console.log(`${ERROR_SAVING_TX_DETAILS}: ${error}`);
+          }
         }
         return;
       }
 
-      // 2. Try Shop flow (Conference App checkouts)
-      // Checks if the wallet was opened by the Shop microapp. Hydrates the transaction parameters
-      // (recipient address and coin cost) and redirects to the confirmation review page.
-      await hydrateShopLaunchDataFromBridge();
-      const shopData = getShopPaymentLaunchData();
-      if (shopData) {
-        try {
-          await saveLocalDataAsync(
-            STORAGE_KEYS.SENDER_WALLET_ADDRESS,
-            shopData.walletAddress,
-          );
-          await saveLocalDataAsync(
-            STORAGE_KEYS.SENDING_AMOUNT,
-            shopData.amount,
-          );
-          navigate("/confirm-assets-send", {
-            replace: true,
-            state: {
-              isShopPaymentFlow: true,
-              returnAppId: shopData.returnAppId,
-              returnRoute: shopData.returnRoute,
-            },
-          });
-        } catch (error) {
-          console.log(`${ERROR_SAVING_TX_DETAILS}: ${error}`);
+      if (peekShop) {
+        const shopData = getShopPaymentLaunchData();
+        if (shopData) {
+          try {
+            await saveLocalDataAsync(
+              STORAGE_KEYS.SENDER_WALLET_ADDRESS,
+              shopData.walletAddress,
+            );
+            await saveLocalDataAsync(
+              STORAGE_KEYS.SENDING_AMOUNT,
+              shopData.amount,
+            );
+            navigate("/confirm-assets-send", {
+              replace: true,
+              state: {
+                isShopPaymentFlow: true,
+                returnAppId: shopData.returnAppId,
+                returnRoute: shopData.returnRoute,
+              },
+            });
+          } catch (error) {
+            console.log(`${ERROR_SAVING_TX_DETAILS}: ${error}`);
+          }
         }
         return;
       }

@@ -207,13 +207,15 @@ const validateShopLaunchMerged = (launchData) => {
   const validWallet =
     typeof normalized.wallet_address === "string" &&
     isAddress(normalized.wallet_address);
-  const appId = String(
-    normalized.source_app_id || normalized.return_app_id || "",
-  ).trim();
-  // Treat source app id as optional, but if present it must match Conference app.
-  const validSource = appId.length === 0 || appId === DEFAULT_RETURN_APP_ID;
+  
+  const sourceAppId = String(normalized.source_app_id || "").trim();
+  const returnAppId = String(normalized.return_app_id || "").trim();
 
-  if (!validAmount || !validWallet || !validSource) {
+  // Treat source and return app IDs as optional, but if present they must match the Conference app ID.
+  const validSource = sourceAppId.length === 0 || sourceAppId === DEFAULT_RETURN_APP_ID;
+  const validReturn = returnAppId.length === 0 || returnAppId === DEFAULT_RETURN_APP_ID;
+
+  if (!validAmount || !validWallet || !validSource || !validReturn) {
     return null;
   }
 

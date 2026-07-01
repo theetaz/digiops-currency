@@ -18,7 +18,6 @@ import {
   peekParkingPaymentLaunchData,
 } from "./helpers/parkingPaymentFlow";
 import {
-  hydrateShopLaunchDataFromBridge,
   peekShopPaymentLaunchData,
 } from "./helpers/shopPaymentFlow";
 import { waitForBridge } from "./helpers/bridge";
@@ -51,23 +50,23 @@ function LayoutView() {
     }
     let cancelled = false;
     (async () => {
-      await hydrateParkingLaunchDataFromBridge();
-      if (cancelled) {
-        return;
+      // 1. Peek both flows first (instant check if already in URL / window)
+      let peekParking = peekParkingPaymentLaunchData();
+      let peekShop = peekShopPaymentLaunchData();
+
+      // 2. If neither is present, run the bridge hydration once
+      if (!peekParking && !peekShop) {
+        await hydrateParkingLaunchDataFromBridge();
+        if (cancelled) return;
+        peekParking = peekParkingPaymentLaunchData();
+        peekShop = peekShopPaymentLaunchData();
       }
-      const peekParking = peekParkingPaymentLaunchData();
+
       if (peekParking) {
         navigate("/send", { replace: true });
         return;
       }
 
-      // Check if the wallet was launched from the Shop/Conference App checkout flow.
-      // If a shop payload is present, hydrate the bridge data and redirect the user directly to the send screen.
-      await hydrateShopLaunchDataFromBridge();
-      if (cancelled) {
-        return;
-      }
-      const peekShop = peekShopPaymentLaunchData();
       if (peekShop) {
         navigate("/send", { replace: true });
         return;
