@@ -8,11 +8,10 @@
 import { isAddress } from "ethereum-address";
 import { requestGetLaunchData } from "../microapp-bridge";
 
-const SHOP_WALLET_PAYMENT_STATUS_KEY = "shop_payment_status";
-const SHOP_WALLET_PAYMENT_TX_HASH_KEY = "shop_payment_tx_hash";
-const SHOP_WALLET_PAYMENT_ERROR_KEY = "shop_payment_error";
-const DEFAULT_RETURN_APP_ID = "com.wso2.superapp.microapp.conference";
-const LAUNCH_DATA_CONSUMED_FLAG = "__shopLaunchDataConsumed";
+const PARKING_APP_ID = "com.wso2.superapp.microapp.people";
+const SHOP_APP_ID = "com.wso2.superapp.microapp.conference";
+
+const LAUNCH_DATA_CONSUMED_FLAG = "__paymentLaunchDataConsumed";
 const CANONICAL_POSITIVE_DECIMAL_PATTERN = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
 const HYDRATE_ATTEMPT_TIMEOUT_MS = 2800;
@@ -60,7 +59,7 @@ const singleHydrateAttempt = () =>
 /**
  * Fetch launch data from the native bridge into window.__MICROAPP_LAUNCH_DATA__.
  */
-export const hydrateShopLaunchDataFromBridge = async () => {
+export const hydrateLaunchDataFromBridge = async () => {
   if (typeof window === "undefined") return;
   if (hasPayloadInMicroappLaunchWindow()) return;
   if (hydrateInFlight) return hydrateInFlight;
@@ -197,8 +196,7 @@ const normalizeLaunchData = (launchData = {}) => {
   };
 };
 
-const validateShopLaunchMerged = (launchData) => {
-  const normalized = normalizeLaunchData(launchData);
+const validatePaymentLaunch = (normalized) => {
   const amountString = String(normalized.coin_amount).trim();
   const validAmountFormat = CANONICAL_POSITIVE_DECIMAL_PATTERN.test(amountString);
   const parsedAmount = Number(amountString);
@@ -207,47 +205,65 @@ const validateShopLaunchMerged = (launchData) => {
   const validWallet =
     typeof normalized.wallet_address === "string" &&
     isAddress(normalized.wallet_address);
-  
-  const sourceAppId = String(normalized.source_app_id || "").trim();
-  const returnAppId = String(normalized.return_app_id || "").trim();
 
-  // Treat source and return app IDs as optional, but if present they must match the Conference app ID.
-  const validSource = sourceAppId.length === 0 || sourceAppId === DEFAULT_RETURN_APP_ID;
-  const validReturn = returnAppId.length === 0 || returnAppId === DEFAULT_RETURN_APP_ID;
-
-  if (!validAmount || !validWallet || !validSource || !validReturn) {
+  if (!validAmount || !validWallet) {
     return null;
   }
 
-  return {
-    walletAddress: normalized.wallet_address,
-    amount: amountString,
-    returnAppId: normalized.return_app_id || normalized.source_app_id || DEFAULT_RETURN_APP_ID,
-    returnRoute: normalized.return_route || ""
-  };
+  const sourceAppId = String(normalized.source_app_id || "").trim();
+  const returnAppId = String(normalized.return_app_id || "").trim();
+
+  // 1. Try Parking payment flow validation
+  const isParkingSource = sourceAppId.length === 0 || sourceAppId === PARKING_APP_ID;
+  const isParkingReturn = returnAppId.length === 0 || returnAppId === PARKING_APP_ID;
+  if (isParkingSource && isParkingReturn) {
+    return {
+      flow: "PARKING",
+      walletAddress: normalized.wallet_address,
+      amount: amountString,
+      returnAppId: returnAppId || sourceAppId || PARKING_APP_ID,
+      returnRoute: normalized.return_route || ""
+    };
+  }
+
+  // 2. Try Shop checkout flow validation
+  const isShopSource = sourceAppId.length === 0 || sourceAppId === SHOP_APP_ID;
+  const isShopReturn = returnAppId.length === 0 || returnAppId === SHOP_APP_ID;
+  if (isShopSource && isShopReturn) {
+    return {
+      flow: "SHOP",
+      walletAddress: normalized.wallet_address,
+      amount: amountString,
+      returnAppId: returnAppId || sourceAppId || SHOP_APP_ID,
+      returnRoute: normalized.return_route || ""
+    };
+  }
+
+  return null;
 };
 
-export const peekShopPaymentLaunchData = () => {
+export const peekPaymentLaunchData = () => {
   const launchData = {
     ...parseSearchQuery(),
     ...parseHashQuery(),
     ...peekWindowLaunchData()
   };
-  return validateShopLaunchMerged(launchData);
+  return validatePaymentLaunch(normalizeLaunchData(launchData));
 };
 
-export const getShopPaymentLaunchData = () => {
+export const getPaymentLaunchData = () => {
   const launchData = {
     ...parseSearchQuery(),
     ...parseHashQuery(),
     ...getWindowLaunchData()
   };
-  return validateShopLaunchMerged(launchData);
+  return validatePaymentLaunch(normalizeLaunchData(launchData));
 };
 
-export const isShopPaymentFlow = () => Boolean(peekShopPaymentLaunchData());
+export const isPaymentFlow = () => Boolean(peekPaymentLaunchData());
 
-export const completeShopPayment = async ({
+export const completePayment = async ({
+  flow,
   status,
   txHash = "",
   error = "",
@@ -256,12 +272,19 @@ export const completeShopPayment = async ({
   returnAppId,
   returnRoute
 }) => {
-  await saveLocalDataAsync(SHOP_WALLET_PAYMENT_STATUS_KEY, status);
-  await saveLocalDataAsync(SHOP_WALLET_PAYMENT_TX_HASH_KEY, txHash);
-  await saveLocalDataAsync(SHOP_WALLET_PAYMENT_ERROR_KEY, error);
+  if (flow === "SHOP") {
+    await saveLocalDataAsync("shop_payment_status", status);
+    await saveLocalDataAsync("shop_payment_tx_hash", txHash);
+    await saveLocalDataAsync("shop_payment_error", error);
+  } else {
+    // Default to PARKING flow keys
+    await saveLocalDataAsync("people_parking_payment_status", status);
+    await saveLocalDataAsync("people_parking_payment_tx_hash", txHash);
+    await saveLocalDataAsync("people_parking_payment_error", error);
+  }
 
   if (typeof requestOpenMicroApp === "function") {
-    requestOpenMicroApp(returnAppId || DEFAULT_RETURN_APP_ID, {
+    requestOpenMicroApp(returnAppId || (flow === "SHOP" ? SHOP_APP_ID : PARKING_APP_ID), {
       initialRoute: returnRoute || undefined
     });
   }

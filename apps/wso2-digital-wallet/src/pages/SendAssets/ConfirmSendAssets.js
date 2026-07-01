@@ -34,8 +34,7 @@ import {
 import { STORAGE_KEYS } from "../../constants/configs";
 import { showToast, showAlertBox } from "../../helpers/alerts";
 import { waitForBridge } from "../../helpers/bridge";
-import { completeParkingPayment } from "../../helpers/parkingPaymentFlow";
-import { completeShopPayment } from "../../helpers/shopPaymentFlow";
+import { completePayment } from "../../helpers/paymentFlow";
 import { requestOpenMicroApp } from "../../microapp-bridge";
 
 function ConfirmSendAssets() {
@@ -47,8 +46,7 @@ function ConfirmSendAssets() {
   const [sendAmount, setSendAmount] = useState("");
   const [senderAddress, setSenderAddress] = useState("");
   const [isTransferLoading, setIsTransferLoading] = useState(false);
-  const [parkingFlowData, setParkingFlowData] = useState(null);
-  const [shopFlowData, setShopFlowData] = useState(null);
+  const [paymentFlowData, setPaymentFlowData] = useState(null);
 
   const fetchLocalTxDetails = async () => {
     try {
@@ -76,13 +74,9 @@ function ConfirmSendAssets() {
 
     // Check if redirect originated from the Parking app or the Shop app
     // and store the routing details so we can redirect back later.
-    if (isParking) {
-      setParkingFlowData({
-        returnAppId: location?.state?.returnAppId || "",
-        returnRoute: location?.state?.returnRoute || "",
-      });
-    } else if (isShop) {
-      setShopFlowData({
+    if (isParking || isShop) {
+      setPaymentFlowData({
+        flow: isParking ? "PARKING" : "SHOP",
         returnAppId: location?.state?.returnAppId || "",
         returnRoute: location?.state?.returnRoute || "",
       });
@@ -106,25 +100,15 @@ function ConfirmSendAssets() {
     await resetInputFields();
     // If the payment is rejected, write the FAILED status to the respective keys
     // (parking or shop) and return back to the calling microapp.
-    if (parkingFlowData) {
-      await completeParkingPayment({
+    if (paymentFlowData) {
+      await completePayment({
+        flow: paymentFlowData.flow,
         status: "FAILED",
         error: "User cancelled payment",
         saveLocalDataAsync,
         requestOpenMicroApp,
-        returnAppId: parkingFlowData.returnAppId,
-        returnRoute: parkingFlowData.returnRoute,
-      });
-      return;
-    }
-    if (shopFlowData) {
-      await completeShopPayment({
-        status: "FAILED",
-        error: "User cancelled payment",
-        saveLocalDataAsync,
-        requestOpenMicroApp,
-        returnAppId: shopFlowData.returnAppId,
-        returnRoute: shopFlowData.returnRoute,
+        returnAppId: paymentFlowData.returnAppId,
+        returnRoute: paymentFlowData.returnRoute,
       });
       return;
     }
@@ -174,27 +158,15 @@ function ConfirmSendAssets() {
 
         // On successful payment confirmation:
         // Write the SUCCESS status and transaction hash back to the respective keys.
-        if (parkingFlowData) {
-          await completeParkingPayment({
+        if (paymentFlowData) {
+          await completePayment({
+            flow: paymentFlowData.flow,
             status: "SUCCESS",
             txHash: receipt?.transactionHash || "",
             saveLocalDataAsync,
             requestOpenMicroApp,
-            returnAppId: parkingFlowData.returnAppId,
-            returnRoute: parkingFlowData.returnRoute,
-          });
-          setIsTransferLoading(false);
-          return;
-        }
-
-        if (shopFlowData) {
-          await completeShopPayment({
-            status: "SUCCESS",
-            txHash: receipt?.transactionHash || "",
-            saveLocalDataAsync,
-            requestOpenMicroApp,
-            returnAppId: shopFlowData.returnAppId,
-            returnRoute: shopFlowData.returnRoute,
+            returnAppId: paymentFlowData.returnAppId,
+            returnRoute: paymentFlowData.returnRoute,
           });
           setIsTransferLoading(false);
           return;
@@ -211,38 +183,21 @@ function ConfirmSendAssets() {
 
       // On transaction errors:
       // Report FAILED status back to the calling microapp.
-      if (parkingFlowData) {
+      if (paymentFlowData) {
         try {
-          await completeParkingPayment({
+          await completePayment({
+            flow: paymentFlowData.flow,
             status: "FAILED",
             error: ERROR_TRANSFERRING_TOKEN,
             saveLocalDataAsync,
             requestOpenMicroApp,
-            returnAppId: parkingFlowData.returnAppId,
-            returnRoute: parkingFlowData.returnRoute,
+            returnAppId: paymentFlowData.returnAppId,
+            returnRoute: paymentFlowData.returnRoute,
           });
-        } catch (parkingError) {
+        } catch (flowError) {
           console.log(
-            "error while reporting parking payment failure",
-            parkingError,
-          );
-        }
-      }
-
-      if (shopFlowData) {
-        try {
-          await completeShopPayment({
-            status: "FAILED",
-            error: ERROR_TRANSFERRING_TOKEN,
-            saveLocalDataAsync,
-            requestOpenMicroApp,
-            returnAppId: shopFlowData.returnAppId,
-            returnRoute: shopFlowData.returnRoute,
-          });
-        } catch (shopError) {
-          console.log(
-            "error while reporting shop payment failure",
-            shopError,
+            "error while reporting payment failure",
+            flowError,
           );
         }
       }
@@ -252,7 +207,7 @@ function ConfirmSendAssets() {
     }
   };
 
-  const isParkingFlow = !!parkingFlowData;
+  const isParkingFlow = paymentFlowData?.flow === "PARKING";
 
   return (
     <div className="confirm-page">

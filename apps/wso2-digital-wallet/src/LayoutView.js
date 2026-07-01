@@ -14,12 +14,9 @@ import Pages from "./pages/Pages";
 // import "./light-theme.css";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  hydrateParkingLaunchDataFromBridge,
-  peekParkingPaymentLaunchData,
-} from "./helpers/parkingPaymentFlow";
-import {
-  peekShopPaymentLaunchData,
-} from "./helpers/shopPaymentFlow";
+  hydrateLaunchDataFromBridge,
+  peekPaymentLaunchData,
+} from "./helpers/paymentFlow";
 import { waitForBridge } from "./helpers/bridge";
 import { requestDeviceSafeAreaInsets } from "./microapp-bridge";
 
@@ -50,24 +47,17 @@ function LayoutView() {
     }
     let cancelled = false;
     (async () => {
-      // 1. Peek both flows first (instant check if already in URL / window)
-      let peekParking = peekParkingPaymentLaunchData();
-      let peekShop = peekShopPaymentLaunchData();
+      // 1. Peek payment launch data (instant check if already in URL / window)
+      let peekPayment = peekPaymentLaunchData();
 
-      // 2. If neither is present, run the bridge hydration once
-      if (!peekParking && !peekShop) {
-        await hydrateParkingLaunchDataFromBridge();
+      // 2. If not present, run the bridge hydration once
+      if (!peekPayment) {
+        await hydrateLaunchDataFromBridge();
         if (cancelled) return;
-        peekParking = peekParkingPaymentLaunchData();
-        peekShop = peekShopPaymentLaunchData();
+        peekPayment = peekPaymentLaunchData();
       }
 
-      if (peekParking) {
-        navigate("/send", { replace: true });
-        return;
-      }
-
-      if (peekShop) {
+      if (peekPayment) {
         navigate("/send", { replace: true });
         return;
       }

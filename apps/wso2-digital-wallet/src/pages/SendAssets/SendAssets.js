@@ -30,14 +30,10 @@ import { useWalletBalance } from "../../services/query-hooks";
 import { waitForBridge } from "../../helpers/bridge";
 import { scanQrCode } from "../../microapp-bridge";
 import {
-  getParkingPaymentLaunchData,
-  peekParkingPaymentLaunchData,
-  hydrateParkingLaunchDataFromBridge,
-} from "../../helpers/parkingPaymentFlow";
-import {
-  getShopPaymentLaunchData,
-  peekShopPaymentLaunchData,
-} from "../../helpers/shopPaymentFlow";
+  getPaymentLaunchData,
+  peekPaymentLaunchData,
+  hydrateLaunchDataFromBridge,
+} from "../../helpers/paymentFlow";
 
 function SendAssets() {
   const navigate = useNavigate();
@@ -114,70 +110,41 @@ function SendAssets() {
 
   useEffect(() => {
     const initializePaymentLaunch = async () => {
-      // 1. Peek both flows first (instant check if already in URL / window)
-      let peekParking = peekParkingPaymentLaunchData();
-      let peekShop = peekShopPaymentLaunchData();
+      // 1. Peek payment launch data (instant check if already in URL / window)
+      let peekPayment = peekPaymentLaunchData();
 
-      // 2. If neither is present, run the bridge hydration once
-      if (!peekParking && !peekShop) {
-        await hydrateParkingLaunchDataFromBridge();
-        peekParking = peekParkingPaymentLaunchData();
-        peekShop = peekShopPaymentLaunchData();
+      // 2. If not present, run the bridge hydration once
+      if (!peekPayment) {
+        await hydrateLaunchDataFromBridge();
+        peekPayment = peekPaymentLaunchData();
       }
 
-      // 3. Process whichever flow was matched
-      if (peekParking) {
-        const parkingData = getParkingPaymentLaunchData();
-        if (parkingData) {
+      // 3. Process the flow if matched
+      if (peekPayment) {
+        const paymentData = getPaymentLaunchData();
+        if (paymentData) {
           try {
             await saveLocalDataAsync(
               STORAGE_KEYS.SENDER_WALLET_ADDRESS,
-              parkingData.walletAddress,
+              paymentData.walletAddress,
             );
             await saveLocalDataAsync(
               STORAGE_KEYS.SENDING_AMOUNT,
-              parkingData.amount,
+              paymentData.amount,
             );
             navigate("/confirm-assets-send", {
               replace: true,
               state: {
-                isParkingPaymentFlow: true,
-                returnAppId: parkingData.returnAppId,
-                returnRoute: parkingData.returnRoute,
+                isParkingPaymentFlow: paymentData.flow === "PARKING",
+                isShopPaymentFlow: paymentData.flow === "SHOP",
+                returnAppId: paymentData.returnAppId,
+                returnRoute: paymentData.returnRoute,
               },
             });
           } catch (error) {
             console.log(`${ERROR_SAVING_TX_DETAILS}: ${error}`);
           }
         }
-        return;
-      }
-
-      if (peekShop) {
-        const shopData = getShopPaymentLaunchData();
-        if (shopData) {
-          try {
-            await saveLocalDataAsync(
-              STORAGE_KEYS.SENDER_WALLET_ADDRESS,
-              shopData.walletAddress,
-            );
-            await saveLocalDataAsync(
-              STORAGE_KEYS.SENDING_AMOUNT,
-              shopData.amount,
-            );
-            navigate("/confirm-assets-send", {
-              replace: true,
-              state: {
-                isShopPaymentFlow: true,
-                returnAppId: shopData.returnAppId,
-                returnRoute: shopData.returnRoute,
-              },
-            });
-          } catch (error) {
-            console.log(`${ERROR_SAVING_TX_DETAILS}: ${error}`);
-          }
-        }
-        return;
       }
     };
 
