@@ -83,13 +83,13 @@ const TopBar = () => {
 
   const title = PAGE_TITLES[location.pathname] ?? WALLET;
 
-  // Parking flow on /confirm-assets-send has no in-app parent — fall back to
+  // Both Parking and Shop checkout flows on /confirm-assets-send have no in-app parent — fall back to
   // the apps-grid leave-dialog so the user always has an escape hatch.
   const baseConfig = NAV_BY_ROUTE[location.pathname] ?? { mode: 'apps' };
-  const isParkingConfirm =
+  const isPaymentConfirm =
     location.pathname === '/confirm-assets-send' &&
-    !!location.state?.isParkingPaymentFlow;
-  const navConfig = isParkingConfirm ? { mode: 'apps' } : baseConfig;
+    (!!location.state?.isParkingPaymentFlow || !!location.state?.isShopPaymentFlow);
+  const navConfig = isPaymentConfirm ? { mode: 'apps' } : baseConfig;
 
   const closeLeaveDialog = () => setIsLeaveOpen(false);
 

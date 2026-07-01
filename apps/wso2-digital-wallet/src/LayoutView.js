@@ -17,6 +17,10 @@ import {
   hydrateParkingLaunchDataFromBridge,
   peekParkingPaymentLaunchData,
 } from "./helpers/parkingPaymentFlow";
+import {
+  hydrateShopLaunchDataFromBridge,
+  peekShopPaymentLaunchData,
+} from "./helpers/shopPaymentFlow";
 import { waitForBridge } from "./helpers/bridge";
 import { requestDeviceSafeAreaInsets } from "./microapp-bridge";
 
@@ -51,11 +55,23 @@ function LayoutView() {
       if (cancelled) {
         return;
       }
-      const peek = peekParkingPaymentLaunchData();
-      if (!peek) {
+      const peekParking = peekParkingPaymentLaunchData();
+      if (peekParking) {
+        navigate("/send", { replace: true });
         return;
       }
-      navigate("/send", { replace: true });
+
+      // Check if the wallet was launched from the Shop/Conference App checkout flow.
+      // If a shop payload is present, hydrate the bridge data and redirect the user directly to the send screen.
+      await hydrateShopLaunchDataFromBridge();
+      if (cancelled) {
+        return;
+      }
+      const peekShop = peekShopPaymentLaunchData();
+      if (peekShop) {
+        navigate("/send", { replace: true });
+        return;
+      }
     })();
     return () => {
       cancelled = true;

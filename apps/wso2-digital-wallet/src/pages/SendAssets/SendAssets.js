@@ -33,6 +33,10 @@ import {
   getParkingPaymentLaunchData,
   hydrateParkingLaunchDataFromBridge,
 } from "../../helpers/parkingPaymentFlow";
+import {
+  getShopPaymentLaunchData,
+  hydrateShopLaunchDataFromBridge,
+} from "../../helpers/shopPaymentFlow";
 
 function SendAssets() {
   const navigate = useNavigate();
@@ -108,36 +112,65 @@ function SendAssets() {
   }, []);
 
   useEffect(() => {
-    const initializeParkingPaymentLaunch = async () => {
+    const initializePaymentLaunch = async () => {
+      // 1. Try Parking flow first
       await hydrateParkingLaunchDataFromBridge();
-      const launchData = getParkingPaymentLaunchData();
-      if (!launchData) {
+      const parkingData = getParkingPaymentLaunchData();
+      if (parkingData) {
+        try {
+          await saveLocalDataAsync(
+            STORAGE_KEYS.SENDER_WALLET_ADDRESS,
+            parkingData.walletAddress,
+          );
+          await saveLocalDataAsync(
+            STORAGE_KEYS.SENDING_AMOUNT,
+            parkingData.amount,
+          );
+          navigate("/confirm-assets-send", {
+            replace: true,
+            state: {
+              isParkingPaymentFlow: true,
+              returnAppId: parkingData.returnAppId,
+              returnRoute: parkingData.returnRoute,
+            },
+          });
+        } catch (error) {
+          console.log(`${ERROR_SAVING_TX_DETAILS}: ${error}`);
+        }
         return;
       }
 
-      try {
-        await saveLocalDataAsync(
-          STORAGE_KEYS.SENDER_WALLET_ADDRESS,
-          launchData.walletAddress,
-        );
-        await saveLocalDataAsync(
-          STORAGE_KEYS.SENDING_AMOUNT,
-          launchData.amount,
-        );
-        navigate("/confirm-assets-send", {
-          replace: true,
-          state: {
-            isParkingPaymentFlow: true,
-            returnAppId: launchData.returnAppId,
-            returnRoute: launchData.returnRoute,
-          },
-        });
-      } catch (error) {
-        console.log(`${ERROR_SAVING_TX_DETAILS}: ${error}`);
+      // 2. Try Shop flow (Conference App checkouts)
+      // Checks if the wallet was opened by the Shop microapp. Hydrates the transaction parameters
+      // (recipient address and coin cost) and redirects to the confirmation review page.
+      await hydrateShopLaunchDataFromBridge();
+      const shopData = getShopPaymentLaunchData();
+      if (shopData) {
+        try {
+          await saveLocalDataAsync(
+            STORAGE_KEYS.SENDER_WALLET_ADDRESS,
+            shopData.walletAddress,
+          );
+          await saveLocalDataAsync(
+            STORAGE_KEYS.SENDING_AMOUNT,
+            shopData.amount,
+          );
+          navigate("/confirm-assets-send", {
+            replace: true,
+            state: {
+              isShopPaymentFlow: true,
+              returnAppId: shopData.returnAppId,
+              returnRoute: shopData.returnRoute,
+            },
+          });
+        } catch (error) {
+          console.log(`${ERROR_SAVING_TX_DETAILS}: ${error}`);
+        }
+        return;
       }
     };
 
-    initializeParkingPaymentLaunch();
+    initializePaymentLaunch();
   }, [navigate]);
 
   // If the native scanner is dismissed without scanning, no bridge callback
