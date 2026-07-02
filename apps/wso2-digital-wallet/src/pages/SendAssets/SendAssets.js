@@ -109,6 +109,8 @@ function SendAssets() {
   }, []);
 
   useEffect(() => {
+    let isCancelled = false;
+
     const initializePaymentLaunch = async () => {
       // 1. Peek payment launch data (instant check if already in URL / window)
       let peekPayment = peekPaymentLaunchData();
@@ -116,6 +118,7 @@ function SendAssets() {
       // 2. If not present, run the bridge hydration once
       if (!peekPayment) {
         await hydrateLaunchDataFromBridge();
+        if (isCancelled) return;
         peekPayment = peekPaymentLaunchData();
       }
 
@@ -128,10 +131,12 @@ function SendAssets() {
               STORAGE_KEYS.SENDER_WALLET_ADDRESS,
               paymentData.walletAddress,
             );
+            if (isCancelled) return;
             await saveLocalDataAsync(
               STORAGE_KEYS.SENDING_AMOUNT,
               paymentData.amount,
             );
+            if (isCancelled) return;
             navigate("/confirm-assets-send", {
               replace: true,
               state: {
@@ -142,13 +147,19 @@ function SendAssets() {
               },
             });
           } catch (error) {
-            console.log(`${ERROR_SAVING_TX_DETAILS}: ${error}`);
+            if (!isCancelled) {
+              console.log(`${ERROR_SAVING_TX_DETAILS}: ${error}`);
+            }
           }
         }
       }
     };
 
     initializePaymentLaunch();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [navigate]);
 
   // If the native scanner is dismissed without scanning, no bridge callback

@@ -116,6 +116,9 @@ function ConfirmSendAssets() {
   };
 
   const handleConfirm = async () => {
+    let receipt = null;
+    let transferFailed = false;
+
     try {
       const isBridgeReady = await waitForBridge();
       if (!isBridgeReady) {
@@ -125,8 +128,38 @@ function ConfirmSendAssets() {
       }
 
       setIsTransferLoading(true);
-      const receipt = await transferToken(senderAddress, sendAmount);
-      if (receipt) {
+      receipt = await transferToken(senderAddress, sendAmount);
+    } catch (error) {
+      console.log("error while transferring token", error);
+      transferFailed = true;
+
+      // On transaction errors:
+      // Report FAILED status back to the calling microapp.
+      if (paymentFlowData) {
+        try {
+          await completePayment({
+            flow: paymentFlowData.flow,
+            status: "FAILED",
+            error: ERROR_TRANSFERRING_TOKEN,
+            saveLocalDataAsync,
+            requestOpenMicroApp,
+            returnAppId: paymentFlowData.returnAppId,
+            returnRoute: paymentFlowData.returnRoute,
+          });
+        } catch (flowError) {
+          console.log(
+            "error while reporting payment failure",
+            flowError,
+          );
+        }
+      }
+
+      showAlertBox(ERROR, ERROR_TRANSFERRING_TOKEN, OK);
+      setIsTransferLoading(false);
+    }
+
+    if (receipt) {
+      try {
         await resetInputFields();
 
         if (fromAddress) {
@@ -155,10 +188,14 @@ function ConfirmSendAssets() {
             queryKey: ["walletBalance", fromAddress],
           });
         }
+      } catch (stateError) {
+        console.error("Error resetting fields or updating query cache", stateError);
+      }
 
-        // On successful payment confirmation:
-        // Write the SUCCESS status and transaction hash back to the respective keys.
-        if (paymentFlowData) {
+      // On successful payment confirmation:
+      // Write the SUCCESS status and transaction hash back to the respective keys.
+      if (paymentFlowData) {
+        try {
           await completePayment({
             flow: paymentFlowData.flow,
             status: "SUCCESS",
@@ -168,41 +205,19 @@ function ConfirmSendAssets() {
             returnAppId: paymentFlowData.returnAppId,
             returnRoute: paymentFlowData.returnRoute,
           });
-          setIsTransferLoading(false);
-          return;
+        } catch (paymentError) {
+          console.error("Error completing payment via bridge", paymentError);
         }
-
-        showToast(SUCCESS, SUCCESS_TOKEN_TRANSFER);
-        setTimeout(() => {
-          navigate("/");
-        }, 500);
+        setIsTransferLoading(false);
+        return;
       }
+
+      showToast(SUCCESS, SUCCESS_TOKEN_TRANSFER);
       setIsTransferLoading(false);
-    } catch (error) {
-      console.log("error while transferring token", error);
-
-      // On transaction errors:
-      // Report FAILED status back to the calling microapp.
-      if (paymentFlowData) {
-        try {
-          await completePayment({
-            flow: paymentFlowData.flow,
-            status: "FAILED",
-            error: ERROR_TRANSFERRING_TOKEN,
-            saveLocalDataAsync,
-            requestOpenMicroApp,
-            returnAppId: paymentFlowData.returnAppId,
-            returnRoute: paymentFlowData.returnRoute,
-          });
-        } catch (flowError) {
-          console.log(
-            "error while reporting payment failure",
-            flowError,
-          );
-        }
-      }
-
-      showAlertBox(ERROR, ERROR_TRANSFERRING_TOKEN, OK);
+      setTimeout(() => {
+        navigate("/");
+      }, 500);
+    } else if (!transferFailed) {
       setIsTransferLoading(false);
     }
   };

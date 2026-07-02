@@ -8,6 +8,19 @@
 import { isAddress } from "ethereum-address";
 import { requestGetLaunchData } from "../microapp-bridge";
 
+export const SHOP_KEYS = {
+  status: "shop_payment_status",
+  txHash: "shop_payment_tx_hash",
+  error: "shop_payment_error",
+  pending: "shop_checkout_pending"
+};
+
+export const PARKING_KEYS = {
+  status: "people_parking_payment_status",
+  txHash: "people_parking_payment_tx_hash",
+  error: "people_parking_payment_error"
+};
+
 const PARKING_APP_ID = "com.wso2.superapp.microapp.people";
 const SHOP_APP_ID = "com.wso2.superapp.microapp.conference";
 
@@ -213,6 +226,11 @@ const validatePaymentLaunch = (normalized) => {
   const sourceAppId = String(normalized.source_app_id || "").trim();
   const returnAppId = String(normalized.return_app_id || "").trim();
 
+  // Reject when both sourceAppId and returnAppId are empty
+  if (sourceAppId.length === 0 && returnAppId.length === 0) {
+    return null;
+  }
+
   // 1. Try Parking payment flow validation
   const isParkingSource = sourceAppId.length === 0 || sourceAppId === PARKING_APP_ID;
   const isParkingReturn = returnAppId.length === 0 || returnAppId === PARKING_APP_ID;
@@ -229,7 +247,8 @@ const validatePaymentLaunch = (normalized) => {
   // 2. Try Shop checkout flow validation
   const isShopSource = sourceAppId.length === 0 || sourceAppId === SHOP_APP_ID;
   const isShopReturn = returnAppId.length === 0 || returnAppId === SHOP_APP_ID;
-  if (isShopSource && isShopReturn) {
+  const hasExplicitShopId = sourceAppId === SHOP_APP_ID || returnAppId === SHOP_APP_ID;
+  if (isShopSource && isShopReturn && hasExplicitShopId) {
     return {
       flow: "SHOP",
       walletAddress: normalized.wallet_address,
@@ -273,14 +292,14 @@ export const completePayment = async ({
   returnRoute
 }) => {
   if (flow === "SHOP") {
-    await saveLocalDataAsync("shop_payment_status", status);
-    await saveLocalDataAsync("shop_payment_tx_hash", txHash);
-    await saveLocalDataAsync("shop_payment_error", error);
+    await saveLocalDataAsync(SHOP_KEYS.status, status);
+    await saveLocalDataAsync(SHOP_KEYS.txHash, txHash);
+    await saveLocalDataAsync(SHOP_KEYS.error, error);
   } else {
     // Default to PARKING flow keys
-    await saveLocalDataAsync("people_parking_payment_status", status);
-    await saveLocalDataAsync("people_parking_payment_tx_hash", txHash);
-    await saveLocalDataAsync("people_parking_payment_error", error);
+    await saveLocalDataAsync(PARKING_KEYS.status, status);
+    await saveLocalDataAsync(PARKING_KEYS.txHash, txHash);
+    await saveLocalDataAsync(PARKING_KEYS.error, error);
   }
 
   if (typeof requestOpenMicroApp === "function") {

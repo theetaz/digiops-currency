@@ -14,6 +14,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { WALLET } from '../../constants/strings';
 import { requestNavigateToMyApps } from '../../microapp-bridge';
 import { saveLocalDataAsync } from '../../helpers/storage';
+import { SHOP_KEYS, PARKING_KEYS } from '../../helpers/paymentFlow';
 
 const PAGE_TITLES = {
   '/': WALLET,
@@ -111,16 +112,18 @@ const TopBar = () => {
       const state = location.state;
       if (state?.isShopPaymentFlow) {
         try {
-          await saveLocalDataAsync("shop_payment_status", "FAILED");
-          await saveLocalDataAsync("shop_payment_error", "User aborted checkout");
-          await saveLocalDataAsync("shop_checkout_pending", null);
+          await saveLocalDataAsync(SHOP_KEYS.status, "FAILED");
+          await saveLocalDataAsync(SHOP_KEYS.error, "User aborted checkout");
+          await saveLocalDataAsync(SHOP_KEYS.pending, null);
+          await saveLocalDataAsync(SHOP_KEYS.txHash, "");
         } catch (e) {
           console.error("Failed to write aborted status for shop payment", e);
         }
       } else if (state?.isParkingPaymentFlow) {
         try {
-          await saveLocalDataAsync("people_parking_payment_status", "FAILED");
-          await saveLocalDataAsync("people_parking_payment_error", "User aborted payment");
+          await saveLocalDataAsync(PARKING_KEYS.status, "FAILED");
+          await saveLocalDataAsync(PARKING_KEYS.error, "User aborted payment");
+          await saveLocalDataAsync(PARKING_KEYS.txHash, "");
         } catch (e) {
           console.error("Failed to write aborted status for parking payment", e);
         }
