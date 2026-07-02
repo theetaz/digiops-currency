@@ -13,6 +13,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { WALLET } from '../../constants/strings';
 import { requestNavigateToMyApps } from '../../microapp-bridge';
+import { saveLocalDataAsync } from '../../helpers/storage';
+import { SHOP_KEYS, PARKING_KEYS } from '../../helpers/paymentFlow';
 
 const PAGE_TITLES = {
   '/': WALLET,
@@ -83,13 +85,13 @@ const TopBar = () => {
 
   const title = PAGE_TITLES[location.pathname] ?? WALLET;
 
-  // Parking flow on /confirm-assets-send has no in-app parent — fall back to
+  // Both Parking and Shop checkout flows on /confirm-assets-send have no in-app parent — fall back to
   // the apps-grid leave-dialog so the user always has an escape hatch.
   const baseConfig = NAV_BY_ROUTE[location.pathname] ?? { mode: 'apps' };
-  const isParkingConfirm =
+  const isPaymentConfirm =
     location.pathname === '/confirm-assets-send' &&
-    !!location.state?.isParkingPaymentFlow;
-  const navConfig = isParkingConfirm ? { mode: 'apps' } : baseConfig;
+    (!!location.state?.isParkingPaymentFlow || !!location.state?.isShopPaymentFlow);
+  const navConfig = isPaymentConfirm ? { mode: 'apps' } : baseConfig;
 
   const closeLeaveDialog = () => setIsLeaveOpen(false);
 
@@ -101,8 +103,33 @@ const TopBar = () => {
     setIsLeaveOpen(true);
   };
 
-  const confirmLeave = () => {
+  const confirmLeave = async () => {
     setIsLeaveOpen(false);
+
+    // If leaving during a checkout or parking payment confirmation screen,
+    // ensure we record the FAILED state so the calling app doesn't get stuck loading.
+    if (location.pathname === '/confirm-assets-send') {
+      const state = location.state;
+      if (state?.isShopPaymentFlow) {
+        try {
+          await saveLocalDataAsync(SHOP_KEYS.status, "FAILED");
+          await saveLocalDataAsync(SHOP_KEYS.error, "User aborted checkout");
+          await saveLocalDataAsync(SHOP_KEYS.pending, null);
+          await saveLocalDataAsync(SHOP_KEYS.txHash, "");
+        } catch (e) {
+          console.error("Failed to write aborted status for shop payment", e);
+        }
+      } else if (state?.isParkingPaymentFlow) {
+        try {
+          await saveLocalDataAsync(PARKING_KEYS.status, "FAILED");
+          await saveLocalDataAsync(PARKING_KEYS.error, "User aborted payment");
+          await saveLocalDataAsync(PARKING_KEYS.txHash, "");
+        } catch (e) {
+          console.error("Failed to write aborted status for parking payment", e);
+        }
+      }
+    }
+
     requestNavigateToMyApps();
   };
 

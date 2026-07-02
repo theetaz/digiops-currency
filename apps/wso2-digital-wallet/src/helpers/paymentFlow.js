@@ -8,11 +8,23 @@
 import { isAddress } from "ethereum-address";
 import { requestGetLaunchData } from "../microapp-bridge";
 
-const PEOPLE_WALLET_PAYMENT_STATUS_KEY = "people_parking_payment_status";
-const PEOPLE_WALLET_PAYMENT_TX_HASH_KEY = "people_parking_payment_tx_hash";
-const PEOPLE_WALLET_PAYMENT_ERROR_KEY = "people_parking_payment_error";
-const DEFAULT_RETURN_APP_ID = "com.wso2.superapp.microapp.people";
-const LAUNCH_DATA_CONSUMED_FLAG = "__parkingLaunchDataConsumed";
+export const SHOP_KEYS = {
+  status: "shop_payment_status",
+  txHash: "shop_payment_tx_hash",
+  error: "shop_payment_error",
+  pending: "shop_checkout_pending"
+};
+
+export const PARKING_KEYS = {
+  status: "people_parking_payment_status",
+  txHash: "people_parking_payment_tx_hash",
+  error: "people_parking_payment_error"
+};
+
+const PARKING_APP_ID = "com.wso2.superapp.microapp.people";
+const SHOP_APP_ID = "com.wso2.superapp.microapp.conference";
+
+const LAUNCH_DATA_CONSUMED_FLAG = "__paymentLaunchDataConsumed";
 const CANONICAL_POSITIVE_DECIMAL_PATTERN = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
 const HYDRATE_ATTEMPT_TIMEOUT_MS = 2800;
@@ -60,7 +72,7 @@ const singleHydrateAttempt = () =>
 /**
  * Fetch launch data from the native bridge into window.__MICROAPP_LAUNCH_DATA__.
  */
-export const hydrateParkingLaunchDataFromBridge = async () => {
+export const hydrateLaunchDataFromBridge = async () => {
   if (typeof window === "undefined") return;
   if (hasPayloadInMicroappLaunchWindow()) return;
   if (hydrateInFlight) return hydrateInFlight;
@@ -197,8 +209,7 @@ const normalizeLaunchData = (launchData = {}) => {
   };
 };
 
-const validateParkingLaunchMerged = (launchData) => {
-  const normalized = normalizeLaunchData(launchData);
+const validatePaymentLaunch = (normalized) => {
   const amountString = String(normalized.coin_amount).trim();
   const validAmountFormat = CANONICAL_POSITIVE_DECIMAL_PATTERN.test(amountString);
   const parsedAmount = Number(amountString);
@@ -207,45 +218,71 @@ const validateParkingLaunchMerged = (launchData) => {
   const validWallet =
     typeof normalized.wallet_address === "string" &&
     isAddress(normalized.wallet_address);
-  const appId = String(
-    normalized.source_app_id || normalized.return_app_id || "",
-  ).trim();
-  // Treat source app id as optional, but if present it must match People app.
-  const validSource = appId.length === 0 || appId === DEFAULT_RETURN_APP_ID;
 
-  if (!validAmount || !validWallet || !validSource) {
+  if (!validAmount || !validWallet) {
     return null;
   }
 
-  return {
-    walletAddress: normalized.wallet_address,
-    amount: amountString,
-    returnAppId: normalized.return_app_id || normalized.source_app_id || DEFAULT_RETURN_APP_ID,
-    returnRoute: normalized.return_route || ""
-  };
+  const sourceAppId = String(normalized.source_app_id || "").trim();
+  const returnAppId = String(normalized.return_app_id || "").trim();
+
+  // Reject when both sourceAppId and returnAppId are empty
+  if (sourceAppId.length === 0 && returnAppId.length === 0) {
+    return null;
+  }
+
+  // 1. Try Parking payment flow validation
+  const isParkingSource = sourceAppId.length === 0 || sourceAppId === PARKING_APP_ID;
+  const isParkingReturn = returnAppId.length === 0 || returnAppId === PARKING_APP_ID;
+  if (isParkingSource && isParkingReturn) {
+    return {
+      flow: "PARKING",
+      walletAddress: normalized.wallet_address,
+      amount: amountString,
+      returnAppId: returnAppId || sourceAppId || PARKING_APP_ID,
+      returnRoute: normalized.return_route || ""
+    };
+  }
+
+  // 2. Try Shop checkout flow validation
+  const isShopSource = sourceAppId.length === 0 || sourceAppId === SHOP_APP_ID;
+  const isShopReturn = returnAppId.length === 0 || returnAppId === SHOP_APP_ID;
+  const hasExplicitShopId = sourceAppId === SHOP_APP_ID || returnAppId === SHOP_APP_ID;
+  if (isShopSource && isShopReturn && hasExplicitShopId) {
+    return {
+      flow: "SHOP",
+      walletAddress: normalized.wallet_address,
+      amount: amountString,
+      returnAppId: returnAppId || sourceAppId || SHOP_APP_ID,
+      returnRoute: normalized.return_route || ""
+    };
+  }
+
+  return null;
 };
 
-export const peekParkingPaymentLaunchData = () => {
+export const peekPaymentLaunchData = () => {
   const launchData = {
     ...parseSearchQuery(),
     ...parseHashQuery(),
     ...peekWindowLaunchData()
   };
-  return validateParkingLaunchMerged(launchData);
+  return validatePaymentLaunch(normalizeLaunchData(launchData));
 };
 
-export const getParkingPaymentLaunchData = () => {
+export const getPaymentLaunchData = () => {
   const launchData = {
     ...parseSearchQuery(),
     ...parseHashQuery(),
     ...getWindowLaunchData()
   };
-  return validateParkingLaunchMerged(launchData);
+  return validatePaymentLaunch(normalizeLaunchData(launchData));
 };
 
-export const isParkingPaymentFlow = () => Boolean(peekParkingPaymentLaunchData());
+export const isPaymentFlow = () => Boolean(peekPaymentLaunchData());
 
-export const completeParkingPayment = async ({
+export const completePayment = async ({
+  flow,
   status,
   txHash = "",
   error = "",
@@ -254,12 +291,19 @@ export const completeParkingPayment = async ({
   returnAppId,
   returnRoute
 }) => {
-  await saveLocalDataAsync(PEOPLE_WALLET_PAYMENT_STATUS_KEY, status);
-  await saveLocalDataAsync(PEOPLE_WALLET_PAYMENT_TX_HASH_KEY, txHash);
-  await saveLocalDataAsync(PEOPLE_WALLET_PAYMENT_ERROR_KEY, error);
+  if (flow === "SHOP") {
+    await saveLocalDataAsync(SHOP_KEYS.status, status);
+    await saveLocalDataAsync(SHOP_KEYS.txHash, txHash);
+    await saveLocalDataAsync(SHOP_KEYS.error, error);
+  } else {
+    // Default to PARKING flow keys
+    await saveLocalDataAsync(PARKING_KEYS.status, status);
+    await saveLocalDataAsync(PARKING_KEYS.txHash, txHash);
+    await saveLocalDataAsync(PARKING_KEYS.error, error);
+  }
 
   if (typeof requestOpenMicroApp === "function") {
-    requestOpenMicroApp(returnAppId || DEFAULT_RETURN_APP_ID, {
+    requestOpenMicroApp(returnAppId || (flow === "SHOP" ? SHOP_APP_ID : PARKING_APP_ID), {
       initialRoute: returnRoute || undefined
     });
   }

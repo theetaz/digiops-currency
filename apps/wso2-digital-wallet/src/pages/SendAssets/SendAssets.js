@@ -30,9 +30,10 @@ import { useWalletBalance } from "../../services/query-hooks";
 import { waitForBridge } from "../../helpers/bridge";
 import { scanQrCode } from "../../microapp-bridge";
 import {
-  getParkingPaymentLaunchData,
-  hydrateParkingLaunchDataFromBridge,
-} from "../../helpers/parkingPaymentFlow";
+  getPaymentLaunchData,
+  peekPaymentLaunchData,
+  hydrateLaunchDataFromBridge,
+} from "../../helpers/paymentFlow";
 
 function SendAssets() {
   const navigate = useNavigate();
@@ -108,36 +109,57 @@ function SendAssets() {
   }, []);
 
   useEffect(() => {
-    const initializeParkingPaymentLaunch = async () => {
-      await hydrateParkingLaunchDataFromBridge();
-      const launchData = getParkingPaymentLaunchData();
-      if (!launchData) {
-        return;
+    let isCancelled = false;
+
+    const initializePaymentLaunch = async () => {
+      // 1. Peek payment launch data (instant check if already in URL / window)
+      let peekPayment = peekPaymentLaunchData();
+
+      // 2. If not present, run the bridge hydration once
+      if (!peekPayment) {
+        await hydrateLaunchDataFromBridge();
+        if (isCancelled) return;
+        peekPayment = peekPaymentLaunchData();
       }
 
-      try {
-        await saveLocalDataAsync(
-          STORAGE_KEYS.SENDER_WALLET_ADDRESS,
-          launchData.walletAddress,
-        );
-        await saveLocalDataAsync(
-          STORAGE_KEYS.SENDING_AMOUNT,
-          launchData.amount,
-        );
-        navigate("/confirm-assets-send", {
-          replace: true,
-          state: {
-            isParkingPaymentFlow: true,
-            returnAppId: launchData.returnAppId,
-            returnRoute: launchData.returnRoute,
-          },
-        });
-      } catch (error) {
-        console.log(`${ERROR_SAVING_TX_DETAILS}: ${error}`);
+      // 3. Process the flow if matched
+      if (peekPayment) {
+        const paymentData = getPaymentLaunchData();
+        if (paymentData) {
+          try {
+            await saveLocalDataAsync(
+              STORAGE_KEYS.SENDER_WALLET_ADDRESS,
+              paymentData.walletAddress,
+            );
+            if (isCancelled) return;
+            await saveLocalDataAsync(
+              STORAGE_KEYS.SENDING_AMOUNT,
+              paymentData.amount,
+            );
+            if (isCancelled) return;
+            navigate("/confirm-assets-send", {
+              replace: true,
+              state: {
+                isParkingPaymentFlow: paymentData.flow === "PARKING",
+                isShopPaymentFlow: paymentData.flow === "SHOP",
+                returnAppId: paymentData.returnAppId,
+                returnRoute: paymentData.returnRoute,
+              },
+            });
+          } catch (error) {
+            if (!isCancelled) {
+              console.log(`${ERROR_SAVING_TX_DETAILS}: ${error}`);
+            }
+          }
+        }
       }
     };
 
-    initializeParkingPaymentLaunch();
+    initializePaymentLaunch();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [navigate]);
 
   // If the native scanner is dismissed without scanning, no bridge callback

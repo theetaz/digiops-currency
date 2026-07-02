@@ -14,9 +14,9 @@ import Pages from "./pages/Pages";
 // import "./light-theme.css";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  hydrateParkingLaunchDataFromBridge,
-  peekParkingPaymentLaunchData,
-} from "./helpers/parkingPaymentFlow";
+  hydrateLaunchDataFromBridge,
+  peekPaymentLaunchData,
+} from "./helpers/paymentFlow";
 import { waitForBridge } from "./helpers/bridge";
 import { requestDeviceSafeAreaInsets } from "./microapp-bridge";
 
@@ -47,15 +47,20 @@ function LayoutView() {
     }
     let cancelled = false;
     (async () => {
-      await hydrateParkingLaunchDataFromBridge();
-      if (cancelled) {
+      // 1. Peek payment launch data (instant check if already in URL / window)
+      let peekPayment = peekPaymentLaunchData();
+
+      // 2. If not present, run the bridge hydration once
+      if (!peekPayment) {
+        await hydrateLaunchDataFromBridge();
+        if (cancelled) return;
+        peekPayment = peekPaymentLaunchData();
+      }
+
+      if (peekPayment) {
+        navigate("/send", { replace: true });
         return;
       }
-      const peek = peekParkingPaymentLaunchData();
-      if (!peek) {
-        return;
-      }
-      navigate("/send", { replace: true });
     })();
     return () => {
       cancelled = true;
