@@ -1,67 +1,38 @@
-create disk mount at /envs/data
-create a disk mount at /envs
+# WSO2 Blockchain Node 04
 
-create a file mount at /envs/data/keystore/key with following content
+Node 04 is a keyless RPC reader. It serves application requests but does not
+hold or unlock a sealer account and does not produce blocks.
 
-{"address":"<value>","crypto":{"cipher":"aes-128-ctr","ciphertext":"<value>","cipherparams":{"iv":"<value>"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"<value>"},"mac":"<value>"},"id":"<value>","version":3}
+## Choreo endpoints
 
-create a file mount at /envs/password.txt and put the node password.
+| Purpose | Port and protocol | Visibility |
+| --- | --- | --- |
+| Application JSON-RPC | `8545/TCP` (`REST`) | `Public`, behind the approved gateway and load balancer |
+| Geth peer sessions | `30303/TCP` | `Project` |
+| Geth peer discovery | `30303/UDP` | `Project` |
 
-create a file mount at /envs/genesis.json with following content
+## Runtime contract
 
-{
-  "config": {
-    "chainId": 10000,
-    "homesteadBlock": 0,
-    "eip150Block": 0,
-    "eip155Block": 0,
-    "eip158Block": 0,
-    "byzantiumBlock": 0,
-    "constantinopleBlock": 0,
-    "petersburgBlock": 0,
-    "istanbulBlock": 0,
-    "berlinBlock": 0,
-    "clique": {
-      "period": 3,
-      "epoch": 30000
-    }
-  },
-  "nonce": "0x0",
-  "timestamp": "0x5cdec502",
-  "extraData": "<value>",
-  "gasLimit": "9000000000000",
-  "difficulty": "",
-  "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "coinbase": "0x0000000000000000000000000000000000000000",
-  "alloc": {},
-  "number": "0x0",
-  "gasUsed": "0x0",
-  "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-}
+The executable startup script is mounted by Choreo at
+`/startup-scripts/node.sh`; it is not part of the container image. The deployed
+reader configuration must meet all of the following requirements:
 
-create a file mount at /envs/node.sh and put following content
+- Keep the existing `/data-directory` persistent volume. Never initialize over
+  an existing `geth/chaindata` directory.
+- Set `NODE_ROLE=rpc`.
+- Do not load a key, unlock an account, use `--mine`, or use
+  `--allow-insecure-unlock`.
+- Listen for P2P traffic on port `30303` and use the approved static peers.
+- When static peers are used, start Geth with `--nodiscover`. UDP remains
+  project-visible for compatibility with environments that still use discovery.
+- Serve HTTP on port `8545` with only `eth,net,web3` enabled. Do not expose
+  `admin`, `personal`, `miner`, `debug` or `txpool` over HTTP.
+- Restrict `--http.vhosts` and `--http.corsdomain` to the approved node hostname
+  and wallet origin.
 
-#!/bin/bash
-# Set log file
-LOG_FILE="/envs/debug.log"
+## Verification
 
-# Initialize node1 and node2 with the genesis.json file
-geth --datadir /envs/data init /envs/genesis.json >> $LOG_FILE 2>&1
-
-geth --datadir /envs/data \
- --syncmode "full" \
- --port 30311 \
- --http \
- --http.addr "0.0.0.0" \
- --http.vhosts=* \
- --http.port 8040 \
- --authrpc.port 8551 \
- --http.api "personal,eth,net,web3,txpool,miner,admin" \
- --bootnodes "enode://<boot node secret>@<boot node access url : port>" \
- --http.corsdomain "\*" \
- --networkid 10000 \
- --unlock "<value>" \
- --password "/envs/password.txt" \
- --allow-insecure-unlock \
- --miner.etherbase "<value>" \
- --mine
+Before adding the reader to the load balancer, verify that `eth_chainId` is
+`0x2710`, `eth_syncing` is `false`, `net_peerCount` is greater than zero and
+`eth_accounts` returns an empty array. Administrative RPC methods must be
+unavailable.

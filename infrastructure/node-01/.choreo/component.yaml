@@ -9,7 +9,15 @@ endpoints:
       networkVisibilities:
         - Public
     - name: udp-miner-node-01
-      displayName: WSO2 Blockchain node 01 P2P service
+      displayName: WSO2 Blockchain node 01 P2P UDP service
+      service:
+        basePath: /
+        port: 30303
+      type: UDP
+      networkVisibilities:
+        - Project
+    - name: tcp-miner-node-01
+      displayName: WSO2 Blockchain node 01 P2P TCP service
       service:
         basePath: /
         port: 30303

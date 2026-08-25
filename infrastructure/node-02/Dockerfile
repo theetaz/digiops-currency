@@ -21,8 +21,8 @@ RUN adduser \
 # Use the above created unprivileged user
 USER 10014
 
-# Expose the required ports
-EXPOSE 8545 8552 30303
+# Document the project-internal metrics and P2P ports. Sealer RPC is disabled.
+EXPOSE 6060/tcp 30303/tcp 30303/udp
 
 # Set the entry point to the startup script
 ENTRYPOINT ["/bin/sh", "/startup-scripts/node.sh"]
