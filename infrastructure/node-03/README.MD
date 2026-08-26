@@ -1,67 +1,59 @@
-create disk mount at /envs/data
-create a disk mount at /envs
+# WSO2 Blockchain Node 03
 
-create a file mount at /envs/data/keystore/key with following content
+Node 03 is a sealer. It holds an authorized Clique signer account and produces
+blocks. It must not serve JSON-RPC traffic.
 
-{"address":"<value>","crypto":{"cipher":"aes-128-ctr","ciphertext":"<value>","cipherparams":{"iv":"<value>"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"<value>"},"mac":"<value>"},"id":"<value>","version":3}
+## Choreo endpoints
 
-create a file mount at /envs/password.txt and put the node password.
+| Purpose | Port and protocol | Visibility |
+| --- | --- | --- |
+| Geth peer sessions | `30303/TCP` | `Project` |
+| Geth peer discovery | `30303/UDP` | `Project` |
+| Geth metrics | `6060/TCP` (`REST`) | `Project` |
 
-create a file mount at /envs/genesis.json with following content
+There is deliberately no endpoint for JSON-RPC port `8545`.
 
-{
-  "config": {
-    "chainId": 10000,
-    "homesteadBlock": 0,
-    "eip150Block": 0,
-    "eip155Block": 0,
-    "eip158Block": 0,
-    "byzantiumBlock": 0,
-    "constantinopleBlock": 0,
-    "petersburgBlock": 0,
-    "istanbulBlock": 0,
-    "berlinBlock": 0,
-    "clique": {
-      "period": 3,
-      "epoch": 30000
-    }
-  },
-  "nonce": "0x0",
-  "timestamp": "0x5cdec502",
-  "extraData": "<value>",
-  "gasLimit": "9000000000000",
-  "difficulty": "",
-  "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "coinbase": "0x0000000000000000000000000000000000000000",
-  "alloc": {},
-  "number": "0x0",
-  "gasUsed": "0x0",
-  "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
-}
+## Runtime contract
 
-create a file mount at /envs/node.sh and put following content
+The executable startup script is mounted by Choreo at
+`/startup-scripts/node.sh`; it is not part of the container image. The deployed
+sealer configuration must meet all of the following requirements:
 
-#!/bin/bash
-# Set log file
-LOG_FILE="/envs/debug.log"
+- Keep the existing `/data-directory` persistent volume. Never initialize over
+  an existing `geth/chaindata` directory.
+- Set `NODE_ROLE=sealer` and retain the approved key and password mounts.
+- Listen for P2P traffic on port `30303` and use the approved static peers.
+- When static peers are used, start Geth with `--nodiscover`. UDP remains
+  project-visible for compatibility with environments that still use discovery.
+- Do not use `--http`, `--http.addr`, `--http.port`, `--http.api` or
+  `--allow-insecure-unlock`. Administrative access is local IPC only.
+- Enable the dedicated metrics listener with
+  `--metrics --metrics.addr 0.0.0.0 --metrics.port 6060`.
 
-# Initialize node1 and node2 with the genesis.json file
-geth --datadir /envs/data init /envs/genesis.json >> $LOG_FILE 2>&1
+The security-relevant part of the Geth command must include:
 
-geth --datadir /envs/data \
- --syncmode "full" \
- --port 30311 \
- --http \
- --http.addr "0.0.0.0" \
- --http.vhosts=* \
- --http.port 8040 \
- --authrpc.port 8551 \
- --http.api "personal,eth,net,web3,txpool,miner,admin" \
- --bootnodes "enode://<boot node secret>@<boot node access url : port>" \
- --http.corsdomain "\*" \
- --networkid 10000 \
- --unlock "<value>" \
- --password "/envs/password.txt" \
- --allow-insecure-unlock \
- --miner.etherbase "<value>" \
- --mine
+```sh
+geth \
+  --datadir /data-directory \
+  --ipcpath /startup-scripts/geth.ipc \
+  --networkid 10000 \
+  --nodiscover \
+  --port 30303 \
+  --mine \
+  --miner.etherbase "$ACCOUNT" \
+  --unlock "$ACCOUNT" \
+  --password /startup-scripts/password.txt \
+  --metrics \
+  --metrics.addr 0.0.0.0 \
+  --metrics.port 6060
+```
+
+This excerpt documents the security-sensitive flags and is not a replacement
+for the complete, reviewed startup script.
+
+## Verification
+
+Deploy one sealer at a time. Through local IPC, verify the expected signer,
+peer count and advancing canonical head. Confirm that
+`/debug/metrics/prometheus` responds on port `6060` from the Choreo project and
+that no public or project endpoint exists for port `8545`.

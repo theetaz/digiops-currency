@@ -1,18 +1,26 @@
 schemaVersion: "1.2"
 endpoints:
-    - name: miner-node-02
-      displayName: WSO2 Blockchain Miner node 02
-      service:
-        basePath: /
-        port: 8545
-      type: REST
-      networkVisibilities:
-        - Public
     - name: udp-miner-node-02
-      displayName: WSO2 Blockchain Miner node 02 UDP service
+      displayName: WSO2 Blockchain sealer node 02 P2P UDP service
       service:
         basePath: /
         port: 30303
       type: UDP
+      networkVisibilities:
+        - Project
+    - name: tcp-miner-node-02
+      displayName: WSO2 Blockchain sealer node 02 P2P TCP service
+      service:
+        basePath: /
+        port: 30303
+      type: TCP
+      networkVisibilities:
+        - Project
+    - name: metrics-sealer-node-02
+      displayName: WSO2 Blockchain sealer node 02 metrics
+      service:
+        basePath: /debug/metrics
+        port: 6060
+      type: REST
       networkVisibilities:
         - Project
