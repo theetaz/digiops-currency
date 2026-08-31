@@ -1,7 +1,7 @@
 schemaVersion: "1.2"
 endpoints:
     - name: miner-node-03
-      displayName: WSO2 Blockchain Miner node 03
+      displayName: WSO2 Blockchain sealer node 03 RPC
       service:
         basePath: /
         port: 8545
