@@ -1,5 +1,13 @@
 schemaVersion: "1.2"
 endpoints:
+    - name: rpc-sealer-node-02
+      displayName: WSO2 Blockchain sealer node 02 signed transaction RPC
+      service:
+        basePath: /
+        port: 8545
+      type: REST
+      networkVisibilities:
+        - Public
     - name: udp-miner-node-02
       displayName: WSO2 Blockchain sealer node 02 P2P UDP service
       service:

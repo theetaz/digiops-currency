@@ -1,59 +1,58 @@
 # WSO2 Blockchain Node 03
 
-Node 03 is a sealer. It holds an authorized Clique signer account and produces
-blocks. It must not serve JSON-RPC traffic.
+Node 03 is an existing Clique sealer. It produces blocks and accepts already
+signed transactions through a restricted Choreo endpoint. Geth delegates block
+signing to Clef and does not unlock an account itself.
 
 ## Choreo endpoints
 
 | Purpose | Port and protocol | Visibility |
 | --- | --- | --- |
+| Signed transaction RPC | `8545/TCP` (`REST`) | `Public` |
 | Geth peer sessions | `30303/TCP` | `Project` |
 | Geth peer discovery | `30303/UDP` | `Project` |
 | Geth metrics | `6060/TCP` (`REST`) | `Project` |
 
-There is deliberately no endpoint for JSON-RPC port `8545`.
+The public endpoint must remain behind Choreo authentication and the approved
+Cloudflare or load-balancer policy. Geth exposes only the `eth`, `net` and
+`web3` namespaces. Gateway policy must allow only the required JSON-RPC methods
+and apply request-size, rate, batch and client-identity limits.
 
 ## Runtime contract
 
-The executable startup script is mounted by Choreo at
-`/startup-scripts/node.sh`; it is not part of the container image. The deployed
-sealer configuration must meet all of the following requirements:
+The reviewed startup script and Clef rules are built into the image at
+`/opt/digiops`. The deployment must meet all of these requirements:
 
-- Keep the existing `/data-directory` persistent volume. Never initialize over
-  an existing `geth/chaindata` directory.
-- Set `NODE_ROLE=sealer` and retain the approved key and password mounts.
-- Listen for P2P traffic on port `30303` and use the approved static peers.
-- When static peers are used, start Geth with `--nodiscover`. UDP remains
-  project-visible for compatibility with environments that still use discovery.
-- Do not use `--http`, `--http.addr`, `--http.port`, `--http.api` or
-  `--allow-insecure-unlock`. Administrative access is local IPC only.
-- Enable the dedicated metrics listener with
-  `--metrics --metrics.addr 0.0.0.0 --metrics.port 6060`.
+- Preserve the existing `/data-directory` persistent volume. The script refuses
+  to initialize a missing blockchain database.
+- Set `NODE_ROLE=sealer`.
+- Set `NODE_HOST` to the approved RPC hostname or comma-separated hostnames.
+- Keep the existing sealer key and credential mounts during the Clef migration.
+  The credential is consumed by Clef only; Geth receives no password.
+- Use the approved `/startup-scripts/p2p.toml` static peer configuration.
+- Never add `--unlock`, `--password` or `--allow-insecure-unlock` to Geth.
+- Never expose `admin`, `personal`, `miner`, `debug`, `txpool` or `clique` over
+  HTTP.
+- Keep Clef IPC and Geth IPC local to the container.
 
-The security-relevant part of the Geth command must include:
+Clef auto-approves only correctly identified Clique block headers for the
+sealer address. It rejects normal transaction signing and arbitrary data
+signing. Applications must sign wallet transactions before calling
+`eth_sendRawTransaction`.
 
-```sh
-geth \
-  --datadir /data-directory \
-  --ipcpath /startup-scripts/geth.ipc \
-  --networkid 10000 \
-  --nodiscover \
-  --port 30303 \
-  --mine \
-  --miner.etherbase "$ACCOUNT" \
-  --unlock "$ACCOUNT" \
-  --password /startup-scripts/password.txt \
-  --metrics \
-  --metrics.addr 0.0.0.0 \
-  --metrics.port 6060
-```
-
-This excerpt documents the security-sensitive flags and is not a replacement
-for the complete, reviewed startup script.
+Clef metadata is stored below `/data-directory/clef`. Creating this directory
+does not reinitialize or rewrite Geth chaindata, genesis, balances, contracts or
+historical blocks.
 
 ## Verification
 
-Deploy one sealer at a time. Through local IPC, verify the expected signer,
-peer count and advancing canonical head. Confirm that
-`/debug/metrics/prometheus` responds on port `6060` from the Choreo project and
-that no public or project endpoint exists for port `8545`.
+Deploy one sealer at a time. For every deployment, confirm all of the following
+before continuing to another node:
+
+1. The startup log reports that existing chaindata was preserved.
+2. Clef opens only its local IPC socket and Geth reports `Using external signer`.
+3. The node seals blocks and follows the canonical head.
+4. `eth_sendTransaction` is denied.
+5. `admin_stopHTTP`, `personal_sign` and other privileged methods are absent.
+6. A signed zero-gas-price staging transaction is accepted and confirmed.
+7. Metrics remain available only through the project-visible endpoint.
