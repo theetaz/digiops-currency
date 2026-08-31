@@ -1,7 +1,7 @@
 schemaVersion: "1.2"
 endpoints:
-    - name: rpc-sealer-node-02
-      displayName: WSO2 Blockchain sealer node 02 signed transaction RPC
+    - name: miner-node-02
+      displayName: WSO2 Blockchain Miner node 02
       service:
         basePath: /
         port: 8545
@@ -22,13 +22,5 @@ endpoints:
         basePath: /
         port: 30303
       type: TCP
-      networkVisibilities:
-        - Project
-    - name: metrics-sealer-node-02
-      displayName: WSO2 Blockchain sealer node 02 metrics
-      service:
-        basePath: /debug/metrics
-        port: 6060
-      type: REST
       networkVisibilities:
         - Project
