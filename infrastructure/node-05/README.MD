@@ -1,59 +1,43 @@
 # WSO2 Blockchain Node 05
 
-Node 05 is a sealer. It holds an authorized Clique signer account and produces
-blocks. It must not serve JSON-RPC traffic.
+Node 05 is an existing Clique sealer. Choreo publishes an authenticated
+JSON-RPC endpoint for chain reads and already-signed transaction submission.
+Contract-owner keys remain outside the node.
 
 ## Choreo endpoints
 
 | Purpose | Port and protocol | Visibility |
 | --- | --- | --- |
+| JSON-RPC | `8545/TCP` (`REST`) | `Public` |
 | Geth peer sessions | `30303/TCP` | `Project` |
 | Geth peer discovery | `30303/UDP` | `Project` |
-| Geth metrics | `6060/TCP` (`REST`) | `Project` |
 
-There is deliberately no endpoint for JSON-RPC port `8545`.
+The former metrics endpoint on port `6060` is not published.
 
 ## Runtime contract
 
 The executable startup script is mounted by Choreo at
-`/startup-scripts/node.sh`; it is not part of the container image. The deployed
-sealer configuration must meet all of the following requirements:
+`/startup-scripts/node.sh`; it is not part of the container image. The
+deployment must meet all of the following requirements:
 
-- Keep the existing `/data-directory` persistent volume. Never initialize over
-  an existing `geth/chaindata` directory.
-- Set `NODE_ROLE=sealer` and retain the approved key and password mounts.
-- Listen for P2P traffic on port `30303` and use the approved static peers.
-- When static peers are used, start Geth with `--nodiscover`. UDP remains
-  project-visible for compatibility with environments that still use discovery.
-- Do not use `--http`, `--http.addr`, `--http.port`, `--http.api` or
-  `--allow-insecure-unlock`. Administrative access is local IPC only.
-- Enable the dedicated metrics listener with
-  `--metrics --metrics.addr 0.0.0.0 --metrics.port 6060`.
-
-The security-relevant part of the Geth command must include:
-
-```sh
-geth \
-  --datadir /data-directory \
-  --ipcpath /startup-scripts/geth.ipc \
-  --networkid 10000 \
-  --nodiscover \
-  --port 30303 \
-  --mine \
-  --miner.etherbase "$ACCOUNT" \
-  --unlock "$ACCOUNT" \
-  --password /startup-scripts/password.txt \
-  --metrics \
-  --metrics.addr 0.0.0.0 \
-  --metrics.port 6060
-```
-
-This excerpt documents the security-sensitive flags and is not a replacement
-for the complete, reviewed startup script.
+- Preserve the existing `/data-directory` volume and never initialize over an
+  existing `geth/chaindata` directory.
+- Keep the approved Clique signer and static peer configuration.
+- Listen for P2P traffic on port `30303` and use `--nodiscover` with the
+  approved static peers.
+- Listen for JSON-RPC on port `8545` with only the required `eth`, `net`
+  and `web3` namespaces.
+- Keep the endpoint behind Choreo authentication and the approved gateway or
+  load balancer. Permit required read methods and `eth_sendRawTransaction`;
+  reject `eth_sendTransaction`, signing methods and privileged namespaces.
+- Keep contract-owner private keys outside the node. Applications must sign
+  transactions before submission.
+- Keep administrative access local to the IPC socket.
 
 ## Verification
 
-Deploy one sealer at a time. Through local IPC, verify the expected signer,
-peer count and advancing canonical head. Confirm that
-`/debug/metrics/prometheus` responds on port `6060` from the Choreo project and
-that no public or project endpoint exists for port `8545`.
+Deploy one node at a time. Confirm that the existing chain data is retained,
+the canonical head advances, peer connectivity remains healthy, authenticated
+reads work and a signed staging transaction is confirmed. Verify that
+`eth_sendTransaction`, signing and privileged methods are rejected and that
+port `6060` is not published.
